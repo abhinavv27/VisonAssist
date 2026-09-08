@@ -5,13 +5,17 @@ so new devices can be integrated without touching the reasoning or priority laye
 """
 
 from .camera_adapter import HardwareCameraAdapter
-from .ultrasonic_adapter import UltrasonicAdapter
+from .ultrasonic_adapter import UltrasonicAdapter, read_sensor_node
 from .imu_adapter import IMUAdapter
 from .button_adapter import ButtonAdapter
+from .esp8266_adapter import ESP8266CompanionAdapter
 
 __all__ = [
     "HardwareCameraAdapter",
     "UltrasonicAdapter",
+    "read_sensor_node",
     "IMUAdapter",
-    "ButtonAdapter"
+    "ButtonAdapter",
+    "ESP8266CompanionAdapter",
 ]
+

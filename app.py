@@ -251,8 +251,16 @@ def launch_streamlit():
     subprocess.run(cmd)
 
 
+def launch_web_app(host: str = "127.0.0.1", port: int = 8000):
+    """Launch the modern VisionAssist Web Application & Landing Page."""
+    from server import run_web_server
+    logger.info(f"Launching VisionAssist Web App at http://{host}:{port}")
+    run_web_server(host=host, port=port)
+
+
 def main():
     parser = argparse.ArgumentParser(description="VisionAssist Accessibility Platform")
+    parser.add_argument("--web", action="store_true", help="Launch the modern VisionAssist Web App & Landing Page")
     parser.add_argument("--streamlit", action="store_true", help="Launch Streamlit UI dashboard")
     parser.add_argument("--benchmark", action="store_true", help="Run end-to-end latency and throughput benchmark")
     parser.add_argument("--mock", action="store_true", help="Use simulated test frames (no webcam required)")
@@ -312,6 +320,8 @@ def main():
     elif args.benchmark:
         from utils.benchmark import PipelineBenchmark
         PipelineBenchmark().run(mock_stream=True)
+    elif args.web:
+        launch_web_app()
     elif args.streamlit:
         launch_streamlit()
     else:
