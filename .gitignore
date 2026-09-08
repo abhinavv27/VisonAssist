@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Model weights (large files)
+*.pt
+*.onnx
+*.weights
+!models/README.md
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

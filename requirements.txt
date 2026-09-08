@@ -1,0 +1,20 @@
+# VisionAssist 24-Hour MVP Dependencies
+# Core perception, risk reasoning, audio guidance, and UI stack
+
+opencv-python>=4.8.0
+numpy>=1.24.0
+pillow>=9.5.0
+
+# Computer Vision & OCR
+ultralytics>=8.0.0
+easyocr>=1.7.0
+
+# Audio & Speech (Windows native SAPI works out of the box via pywin32)
+pywin32>=306
+pyttsx3>=2.90
+
+# User Interface
+streamlit>=1.28.0
+
+# Testing & Utilities
+pytest>=7.4.0
