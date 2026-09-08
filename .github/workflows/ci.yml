@@ -29,6 +29,10 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ['3.11']
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

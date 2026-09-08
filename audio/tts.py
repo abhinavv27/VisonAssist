@@ -8,11 +8,13 @@ Conforms strictly to Team Interface Contract:
 Receives: text -> Produces: spoken audio.
 """
 
+import json
 import logging
+import os
 import queue
+import sys
 import threading
 import time
-import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 
@@ -192,6 +194,8 @@ class TextToSpeechEngine:
         self._utterance_counter = 0
         self._sapi_voice = None
 
+        self._phone_server: Optional[HTTPServer] = None
+
         # Background synthesis worker
         self._speech_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._speech_thread.start()
@@ -204,6 +208,7 @@ class TextToSpeechEngine:
             try:
                 # Binds to local Wi-Fi / LAN interface so phone can receive audio
                 server = HTTPServer((self.phone_audio_host, self.phone_audio_port), _PhoneAudioHTTPHandler)
+                self._phone_server = server
                 logger.info(f"Phone Audio Relay live at http://{self.phone_audio_host}:{self.phone_audio_port}/phone-audio")
                 server.serve_forever()
             except Exception as e:
@@ -274,22 +279,29 @@ class TextToSpeechEngine:
 
     def _worker_loop(self) -> None:
         """Background thread handling TTS synthesis."""
-        # Try native Windows SAPI first
         sapi_voice = None
-        try:
-            import pythoncom
-            import win32com.client
-            pythoncom.CoInitialize()
-            sapi_voice = win32com.client.Dispatch("SAPI.SpVoice")
-            sapi_voice.Volume = int(self.volume * 100)
-            self._sapi_voice = sapi_voice
-            logger.info("Native Windows SAPI voice engine initialized.")
-        except Exception as e:
-            logger.debug(f"Windows SAPI not available: {e}. Checking pyttsx3...")
+        is_headless_test = bool(
+            os.environ.get("PYTEST_CURRENT_TEST")
+            or os.environ.get("CI")
+            or os.environ.get("GITHUB_ACTIONS")
+        )
 
-        # Fallback to pyttsx3
+        # Try native Windows SAPI first (only when interactive and not in automated CI/test runners)
+        if not is_headless_test and sys.platform == "win32":
+            try:
+                import pythoncom
+                import win32com.client
+                pythoncom.CoInitialize()
+                sapi_voice = win32com.client.Dispatch("SAPI.SpVoice")
+                sapi_voice.Volume = int(self.volume * 100)
+                self._sapi_voice = sapi_voice
+                logger.info("Native Windows SAPI voice engine initialized.")
+            except Exception as e:
+                logger.debug(f"Windows SAPI not available: {e}. Checking pyttsx3...")
+
+        # Fallback to pyttsx3 only when not in headless test
         pyttsx3_engine = None
-        if sapi_voice is None:
+        if sapi_voice is None and not is_headless_test:
             try:
                 import pyttsx3
                 pyttsx3_engine = pyttsx3.init()
@@ -299,49 +311,56 @@ class TextToSpeechEngine:
             except Exception as e:
                 logger.warning(f"Audio TTS fallback to terminal logging: {e}")
 
-        while not self._stop_event.is_set():
-            try:
-                text = self._speech_queue.get(timeout=0.2)
-                self._current_utterance = text
-                self._last_spoken_utterance = text
-                self._interrupt_event.clear()
-                logger.info(f"[TTS AUDIO]: \"{text}\"")
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    text = self._speech_queue.get(timeout=0.2)
+                    self._current_utterance = text
+                    self._last_spoken_utterance = text
+                    self._interrupt_event.clear()
+                    logger.info(f"[TTS AUDIO]: \"{text}\"")
 
-                word_count = len(text.split())
-                sim_duration = min(2.5, max(0.6, word_count * 0.15))
+                    word_count = len(text.split())
+                    sim_duration = min(2.5, max(0.6, word_count * 0.15))
 
-                if not self.mute:
-                    if sapi_voice is not None:
-                        # SAPI speech flag 0 = synchronous within this worker thread
-                        sapi_voice.Speak(text, 0)
-                    elif pyttsx3_engine is not None:
-                        try:
-                            pyttsx3_engine.say(text)
-                            pyttsx3_engine.runAndWait()
-                        except Exception as e:
-                            logger.debug(f"pyttsx3 speech note: {e}")
-                    else:
-                        # Simulated audio delay checking for mid-speech interrupt
-                        elapsed = 0.0
-                        while elapsed < sim_duration and not self._interrupt_event.is_set():
-                            time.sleep(0.05)
-                            elapsed += 0.05
-                else:
-                    # Mute simulates playback time so mid-speech interrupt testing is preserved
+                    if not self.mute:
+                        if sapi_voice is not None:
+                            try:
+                                # SAPI flag 1 = SVSFlagsAsync (non-blocking, device-safe)
+                                sapi_voice.Speak(text, 1)
+                            except Exception as e:
+                                logger.debug(f"SAPI speech note: {e}")
+                        elif pyttsx3_engine is not None:
+                            try:
+                                pyttsx3_engine.say(text)
+                                pyttsx3_engine.runAndWait()
+                            except Exception as e:
+                                logger.debug(f"pyttsx3 speech note: {e}")
+
+                    # Maintain realistic speech delivery duration checking for priority interrupt
                     elapsed = 0.0
                     while elapsed < sim_duration and not self._interrupt_event.is_set():
                         time.sleep(0.05)
                         elapsed += 0.05
 
-                self._last_spoken_utterance = text
-                if not self._interrupt_event.is_set():
+                    self._last_spoken_utterance = text
+                    if not self._interrupt_event.is_set():
+                        self._current_utterance = None
+                    self._speech_queue.task_done()
+                except queue.Empty:
+                    continue
+                except Exception as e:
+                    logger.error(f"Error during speech synthesis: {e}")
                     self._current_utterance = None
-                self._speech_queue.task_done()
-            except queue.Empty:
-                continue
-            except Exception as e:
-                logger.error(f"Error during speech synthesis: {e}")
-                self._current_utterance = None
+        finally:
+            if sapi_voice is not None:
+                del sapi_voice
+                self._sapi_voice = None
+                try:
+                    import pythoncom
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
 
     @property
     def current_utterance(self) -> Optional[str]:
@@ -354,7 +373,15 @@ class TextToSpeechEngine:
         return self._last_interrupted_utterance
 
     def stop(self) -> None:
-        """Stops the background speech worker thread."""
+        """Stops the background speech worker thread and closes phone server."""
         self._stop_event.set()
+        if self._phone_server:
+            try:
+                self._phone_server.shutdown()
+                self._phone_server.server_close()
+            except Exception as e:
+                logger.debug(f"Error closing phone server: {e}")
+            self._phone_server = None
+
         if self._speech_thread.is_alive():
             self._speech_thread.join(timeout=1.0)
