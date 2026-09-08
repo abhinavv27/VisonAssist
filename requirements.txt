@@ -10,7 +10,7 @@ ultralytics>=8.0.0
 easyocr>=1.7.0
 
 # Audio & Speech (Windows native SAPI works out of the box via pywin32)
-pywin32>=306
+pywin32>=306; sys_platform == 'win32'
 pyttsx3>=2.90
 
 # User Interface
