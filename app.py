@@ -41,7 +41,9 @@ def run_cli_loop(
     use_mock: bool = False,
     no_gui: bool = False,
     stream_url: str = None,
-    max_iterations: Optional[int] = None
+    max_iterations: Optional[int] = None,
+    language: str = "en",
+    enable_voice_trigger: bool = False
 ):
     """
     Core closed-loop execution:
@@ -87,6 +89,18 @@ def run_cli_loop(
         "Read the sign in front of me"
     ]
     ask_query_idx = 0
+
+    def on_wake_word():
+        nonlocal active_mode
+        logger.info("Wake phrase detected! Switching to Mode 1 (Quick Look)")
+        active_mode = ProductMode.QUICK_LOOK
+        priority_engine.reset_cooldown()
+
+    voice_listener = None
+    if enable_voice_trigger:
+        from input.voice_trigger import VoiceTriggerListener
+        voice_listener = VoiceTriggerListener(callback=on_wake_word)
+        voice_listener.start()
 
     logger.info("=" * 60)
     logger.info(f"VisionAssist running in mode: {mode.name}")
@@ -159,7 +173,10 @@ def run_cli_loop(
 
                 # Generate natural sentence & speak
                 if prioritized:
-                    res = response_gen.generate(prioritized)
+                    res = response_gen.generate(
+                        prioritized,
+                        language=language
+                    )
                     text_to_speak = res.get("text", "")
                     if text_to_speak:
                         current_audio_text = text_to_speak
@@ -217,6 +234,8 @@ def run_cli_loop(
         logger.info("Terminated by user interrupt.")
     finally:
         logger.info("Cleaning up resources...")
+        if voice_listener:
+            voice_listener.stop()
         camera.release()
         tts.stop()
         if not no_gui:
@@ -251,10 +270,46 @@ def main():
         default="obstacle",
         help="Initial operating mode"
     )
+    parser.add_argument(
+        "--lang",
+        choices=["en", "hi"],
+        default="en",
+        help="Audio speech language (default: en, options: en, hi)"
+    )
+    parser.add_argument(
+        "--voice-trigger",
+        action="store_true",
+        help="Enable hands-free 'Vision, look' wake phrase detection"
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the automated 6-stage 3-minute judge presentation rehearsal"
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Run high-resolution pipeline latency profiler (< 40ms SLA check)"
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run pre-flight system diagnostics before demo presentation"
+    )
 
     args = parser.parse_args()
 
-    if args.benchmark:
+    if args.demo:
+        from scripts.rehearse_demo import DemoRehearsalRunner
+        runner = DemoRehearsalRunner(pace_factor=0.5, speak_audio=True)
+        runner.run()
+    elif args.profile:
+        from scripts.profile_latency import run_latency_profile
+        run_latency_profile(iterations=25, warmup=5)
+    elif args.preflight:
+        from scripts.preflight_check import run_preflight_diagnostics
+        run_preflight_diagnostics()
+    elif args.benchmark:
         from utils.benchmark import PipelineBenchmark
         PipelineBenchmark().run(mock_stream=True)
     elif args.streamlit:
@@ -272,7 +327,9 @@ def main():
             mode=selected_mode,
             use_mock=args.mock,
             no_gui=args.no_gui,
-            stream_url=args.phone_stream
+            stream_url=args.phone_stream,
+            language=args.lang,
+            enable_voice_trigger=args.voice_trigger
         )
 
 

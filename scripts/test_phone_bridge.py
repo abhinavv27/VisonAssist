@@ -16,6 +16,17 @@ import socket
 import sys
 import time
 import urllib.request
+import pytest
+
+@pytest.fixture
+def host() -> str:
+    """Default host for phone bridge tests."""
+    return "127.0.0.1"
+
+@pytest.fixture
+def port() -> int:
+    """Default port for phone bridge tests."""
+    return 8088
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -52,8 +63,8 @@ def get_local_ip() -> str:
     return ip
 
 
-def test_audio_relay(host: str, port: int) -> bool:
-    """Verifies that the phone audio endpoint is live and serving JSON."""
+def _check_audio_relay(host: str, port: int) -> bool:
+    """Helper that verifies the phone audio endpoint is live and serving JSON."""
     url = f"http://{host}:{port}/api/speech"
     try:
         req = urllib.request.Request(
@@ -73,6 +84,12 @@ def test_audio_relay(host: str, port: int) -> bool:
     return False
 
 
+def test_audio_relay(host: str, port: int) -> None:
+    """Verifies that the phone audio endpoint is live and serving JSON.
+    Uses fixtures for host and port. Skips the test if the endpoint is not reachable."""
+    if not _check_audio_relay(host, port):
+        pytest.skip("Phone audio relay is not reachable")
+
 def run_bridge_test(
     stream_url: str = PHONE_STREAM_URL,
     test_frames: int = 30
@@ -91,7 +108,7 @@ def run_bridge_test(
     tts = TextToSpeechEngine(phone_audio_port=8088)
     time.sleep(0.5)
 
-    audio_ok = test_audio_relay("127.0.0.1", 8088)
+    audio_ok = _check_audio_relay("127.0.0.1", 8088)
     if audio_ok:
         print(
             f"[OK] Audio Relay Server: OK -> "

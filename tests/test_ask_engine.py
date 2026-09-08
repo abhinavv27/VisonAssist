@@ -73,3 +73,44 @@ def test_ask_engine_clear_path():
     engine = AskEngine()
     answer = engine.ask("Is the path clear?", context_items=[])
     assert "clear" in answer.lower()
+
+
+def test_ask_engine_hindi_door_query():
+    """Verify Hindi question or language='hi' yields natural Hindi location answer."""
+    engine = AskEngine()
+    context_items = [
+        {
+            "object": "door",
+            "confidence": 0.90,
+            "position": "centre",
+            "position_desc": "ahead",
+            "distance": 2.5,
+            "priority": "MEDIUM",
+        }
+    ]
+    # Test via language parameter
+    ans_param = engine.ask("Where is the door?", context_items=context_items, language="hi")
+    assert "दरवाजा" in ans_param
+    assert "मीटर" in ans_param
+
+    # Test via Devanagari script auto-detection
+    ans_script = engine.ask("दरवाजा कहाँ है?", context_items=context_items)
+    assert "दरवाजा" in ans_script
+    assert "सामने" in ans_script or "मीटर" in ans_script
+
+
+def test_ask_engine_hindi_sign_query():
+    """Verify Hindi sign reading query outputs Hindi response."""
+    engine = AskEngine()
+    ocr_items = [{"text": "Room 204", "confidence": 0.96}]
+    answer = engine.ask("बोर्ड पर क्या लिखा है?", ocr_items=ocr_items)
+    assert "साइन बोर्ड पर लिखा है" in answer
+    assert "Room 204" in answer
+
+
+def test_ask_engine_hindi_clear_path():
+    """Verify Hindi clearance query returns safe path indication in Hindi."""
+    engine = AskEngine()
+    answer = engine.ask("क्या रास्ता साफ है?", context_items=[])
+    assert "रास्ता साफ है" in answer
+

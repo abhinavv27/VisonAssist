@@ -248,6 +248,23 @@ py app.py --mock
 ```bash
 # Launch the accessible 3-panel evaluation dashboard
 py -m streamlit run ui/dashboard.py
+# Or launch directly via master entrypoint:
+py app.py --streamlit
+```
+
+#### Option D: 1-Command Verification & Demo Tools
+```bash
+# Run automated pre-flight system diagnostics across 8 checkpoints
+py app.py --preflight
+
+# Run microsecond pipeline latency profiler (< 40ms SLA check)
+py app.py --profile
+
+# Run automated 6-stage 3-minute judging rehearsal with voice synthesis
+py app.py --demo
+
+# Run with natural Hindi voice guidance
+py app.py --mock --lang hi
 ```
 
 ---
@@ -256,11 +273,11 @@ py -m streamlit run ui/dashboard.py
 
 ```
 VisonAssist/
-├── app.py                         # Master runtime loop (CLI, phone stream, GUI)
+├── app.py                         # Master runtime loop (CLI, phone stream, GUI, --demo, --profile)
 ├── config.py                      # Danger weights, FOV geometry, risk thresholds
 ├── requirements.txt               # Dependencies (PyTorch, Ultralytics, OpenCV, Streamlit)
 ├── SYSTEM_ARCHITECTURE.md         # Full technical design & execution roadmap
-├── DEMO_RUNBOOK.md                # Hackathon live demonstration runbook
+├── DEMO_RUNBOOK.md                # Hackathon live demonstration runbook & cheat sheet
 ├── README.md                      # Project documentation & reference
 ├── .gitleaks.toml                 # Secret scanner allowlist configuration
 ├── .github/
@@ -271,7 +288,8 @@ VisonAssist/
 ├── input/                         # Hardware-Agnostic Video Capture
 │   ├── camera_interface.py        # BaseCamera abstract class
 │   ├── webcam.py                  # Local webcam adapter with mock fallback
-│   └── phone_stream.py            # Low-latency threaded smartphone stream grabber
+│   ├── phone_stream.py            # Low-latency threaded smartphone stream grabber
+│   └── voice_trigger.py           # Hands-free "Vision, look" wake phrase listener
 │
 ├── perception/                    # Computer Vision & Sensor Fusion
 │   ├── object_detection.py        # YOLOv8 detector with vehicle sensitivity
@@ -283,15 +301,15 @@ VisonAssist/
 │   ├── context_engine.py          # Temporal object tracking & velocity calculation
 │   ├── risk_engine.py             # Explainable mathematical risk score formula
 │   ├── priority_engine.py         # Attention selection & anti-spam debounce
-│   ├── ask_engine.py              # Visual Question Answering (Grounded + Ollama VLM)
-│   └── response_generator.py      # Natural, concise voice prompt templates
+│   ├── ask_engine.py              # Bilingual Visual Q&A (Grounded + Ollama VLM)
+│   └── response_generator.py      # Bilingual natural voice prompt templates (EN / HI)
 │
 ├── audio/                         # Speech Synthesis & Wireless Return
-│   ├── tts.py                     # Priority-interrupt offline TTS engine
+│   ├── tts.py                     # Priority-interrupt offline TTS engine + 1200Hz Earcon
 │   └── audio_stream_server.py     # HTTP/WebSocket relay for smartphone playback
 │
 ├── ui/                            # Presentation & Telemetry
-│   └── dashboard.py               # Streamlit 3-panel accessible judge console
+│   └── dashboard.py               # Streamlit Section 20 3-panel accessible judge console
 │
 ├── hardware/                      # Future Smart-Glasses Hardware Drivers
 │   ├── camera_adapter.py          # ESP32-CAM / Raspberry Pi camera driver
@@ -300,14 +318,19 @@ VisonAssist/
 │   └── button_adapter.py          # Tactile lanyard push-button interrupt driver
 │
 ├── scripts/                       # Utilities & Evaluation Benchmarks
-│   ├── calibrate_pipeline.py      # 10-scenario automated calibration runner
+│   ├── calibrate_pipeline.py      # 10-scenario automated calibration runner (100% pass)
+│   ├── preflight_check.py         # 8-point hardware & software pre-flight diagnostics
+│   ├── profile_latency.py         # Microsecond per-stage & end-to-end latency profiler
+│   ├── rehearse_demo.py           # 6-step automated judge presentation rehearsal
+│   ├── record_backup_demo.py      # Standalone offline backup video generator
 │   └── test_phone_bridge.py       # Smartphone audio/camera latency tester
 │
-└── tests/                         # Comprehensive Unit & Regression Suite (39 Tests)
+└── tests/                         # Comprehensive Unit & Regression Suite (51 Tests)
     ├── test_ask_and_safety_modes.py
     ├── test_ask_engine.py
     ├── test_context_and_risk.py
     ├── test_demo_assets.py
+    ├── test_phase4_demo_and_ui.py
     ├── test_phone_stream_and_audio.py
     ├── test_priority_engine.py
     ├── test_response_generator.py
