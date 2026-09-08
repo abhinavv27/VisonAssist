@@ -1,7 +1,7 @@
 """
 Phone Bridge & Streaming Test Tool (Phase 3)
 ============================================
-Diagnoses and tests the two-way wireless link between the smartphone and laptop:
+Diagnoses and tests the wireless link between smartphone and laptop:
 1. Identifies local Wi-Fi / Hotspot LAN IP for phone connection.
 2. Verifies Phone Audio Relay server (port 8088 / /phone-audio).
 3. Connects to PhoneStreamCamera, measures FPS and frame latency.
@@ -22,11 +22,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# flake8: noqa: E402
 from config import PHONE_STREAM_URL
-from input.phone_stream import PhoneStreamCamera, normalize_stream_url, probe_stream_connectivity
+from input.phone_stream import (
+    PhoneStreamCamera,
+    normalize_stream_url,
+    probe_stream_connectivity,
+)
 from audio.tts import TextToSpeechEngine
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger("VisionAssist.PhoneBridge")
 
 
@@ -34,7 +42,7 @@ def get_local_ip() -> str:
     """Discovers the primary LAN/Wi-Fi IPv4 address of this machine."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Does not actually transmit packets, just routes to discover LAN interface
+        # Routes to discover LAN interface without transmitting packets
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
     except Exception:
@@ -48,18 +56,27 @@ def test_audio_relay(host: str, port: int) -> bool:
     """Verifies that the phone audio endpoint is live and serving JSON."""
     url = f"http://{host}:{port}/api/speech"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "VisionAssist-Test/1.0"})
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "VisionAssist-Test/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=2.0) as resp:  # nosec B310
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
-                logger.info(f"Phone Audio Server is LIVE at http://{host}:{port}/phone-audio (Latest ID: {data.get('id')})")
+                logger.info(
+                    f"Phone Audio Server LIVE at http://{host}:{port}/phone-audio "
+                    f"(Latest ID: {data.get('id')})"
+                )
                 return True
     except Exception as e:
         logger.warning(f"Phone Audio Server check on {url} returned: {e}")
     return False
 
 
-def run_bridge_test(stream_url: str = PHONE_STREAM_URL, test_frames: int = 30):
+def run_bridge_test(
+    stream_url: str = PHONE_STREAM_URL,
+    test_frames: int = 30
+) -> bool:
     """Full Phase 3 diagnostics suite."""
     local_ip = get_local_ip()
     print("\n" + "=" * 75)
@@ -76,7 +93,10 @@ def run_bridge_test(stream_url: str = PHONE_STREAM_URL, test_frames: int = 30):
 
     audio_ok = test_audio_relay("127.0.0.1", 8088)
     if audio_ok:
-        print(f"[OK] Audio Relay Server: OK -> Open on Phone: http://{local_ip}:8088/phone-audio")
+        print(
+            f"[OK] Audio Relay Server: OK -> "
+            f"Open on Phone: http://{local_ip}:8088/phone-audio"
+        )
         tts.speak("VisionAssist wireless phone bridge verified. Audio online.")
     else:
         print("[WARN] Audio Relay Server: Pending or port occupied.")
@@ -84,7 +104,8 @@ def run_bridge_test(stream_url: str = PHONE_STREAM_URL, test_frames: int = 30):
     # 2. Probe Phone Camera Stream Reachability
     norm_url = normalize_stream_url(stream_url)
     reachable = probe_stream_connectivity(norm_url, timeout=1.5)
-    print(f"* Stream Reachability Probe:  {'CONNECTED' if reachable else 'NOT REACHABLE (Offline/Standby)'}")
+    reach_status = "CONNECTED" if reachable else "NOT REACHABLE (Standby)"
+    print(f"* Stream Reachability Probe:  {reach_status}")
 
     # 3. Test Frame Retrieval & Measure Latency
     logger.info("Testing PhoneStreamCamera frame acquisition...")
@@ -109,20 +130,26 @@ def run_bridge_test(stream_url: str = PHONE_STREAM_URL, test_frames: int = 30):
         total_time = time.perf_counter() - t0
         avg_fps = round(frames_grabbed / total_time, 1) if total_time > 0 else 0
         avg_latency = round(sum(latencies) / len(latencies), 1) if latencies else 0.0
+        res = f"{cam.resolution[0]}x{cam.resolution[1]}"
 
         print(f"* Frames Grabbed:             {frames_grabbed}/{test_frames}")
         print(f"* Effective Stream FPS:       {avg_fps} FPS")
         print(f"* Average Frame Read Latency: {avg_latency} ms")
-        print(f"* Camera Resolution:          {cam.resolution[0]}x{cam.resolution[1]}")
+        print(f"* Camera Resolution:          {res}")
     else:
         print(f"[WARN] Phone camera at {norm_url} is currently offline.")
         print("  -> Standby HUD active. Upstream pipeline will not block.")
         ret, frame = cam.read_frame()
-        print(f"* Standby Frame Delivered:    {'Yes' if ret else 'No'} ({cam.resolution[0]}x{cam.resolution[1]})")
+        deliv = "Yes" if ret else "No"
+        print(f"* Standby Frame Delivered:    {deliv} ({cam.resolution[0]}x{cam.resolution[1]})")
 
     # 4. Emergency Collision Interruption Test
     logger.info("Triggering emergency priority alert...")
-    tts.speak("Warning. Imminent obstacle ahead.", interrupt=True, priority=True)
+    tts.speak(
+        "Warning. Imminent obstacle ahead.",
+        interrupt=True,
+        priority=True
+    )
     time.sleep(0.5)
 
     cam.release()
@@ -134,9 +161,20 @@ def run_bridge_test(stream_url: str = PHONE_STREAM_URL, test_frames: int = 30):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test phone camera stream and audio relay")
-    parser.add_argument("--url", default=PHONE_STREAM_URL, help="Phone stream URL")
-    parser.add_argument("--frames", type=int, default=20, help="Number of frames to sample")
+    parser = argparse.ArgumentParser(
+        description="Test phone camera stream and audio relay"
+    )
+    parser.add_argument(
+        "--url",
+        default=PHONE_STREAM_URL,
+        help="Phone stream URL"
+    )
+    parser.add_argument(
+        "--frames",
+        type=int,
+        default=20,
+        help="Number of frames to sample"
+    )
     args = parser.parse_args()
 
     run_bridge_test(stream_url=args.url, test_frames=args.frames)

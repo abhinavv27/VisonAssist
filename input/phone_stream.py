@@ -35,19 +35,22 @@ def normalize_stream_url(url: str) -> str:
     clean = url.strip()
     if not clean.startswith(("http://", "https://", "rtsp://")):
         clean = "http://" + clean
-    if clean.startswith("http://") and clean.count(":") == 2 and not clean.split(":")[-1].count("/"):
+    if (
+        clean.startswith("http://")
+        and clean.count(":") == 2
+        and not clean.split(":")[-1].count("/")
+    ):
         clean = clean.rstrip("/") + "/video"
     return clean
 
 
 def probe_stream_connectivity(url: str, timeout: float = 0.8) -> bool:
     """
-    Rapidly probes if the phone stream IP and port are reachable before opening cv2.VideoCapture,
-    preventing 30-second blocking freezes when the phone is offline.
+    Rapidly probes if the phone stream IP and port are reachable before
+    opening cv2.VideoCapture, preventing freezes when phone is offline.
     """
     try:
         normalized = normalize_stream_url(url)
-        # Parse host and port
         netloc = normalized.split("://")[-1].split("/")[0]
         if ":" in netloc:
             host, port_str = netloc.split(":")
@@ -67,9 +70,9 @@ def probe_stream_connectivity(url: str, timeout: float = 0.8) -> bool:
 
 class PhoneStreamCamera(BaseCamera):
     """
-    Connects to smartphone video stream with dedicated background frame retrieval.
-    Prevents network buffer lag over Wi-Fi so the vision pipeline always gets
-    the single freshest frame under 30ms latency.
+    Connects to smartphone video stream with dedicated background frame
+    retrieval. Prevents network buffer lag over Wi-Fi so the vision pipeline
+    always gets the freshest frame under 30ms latency.
     """
 
     def __init__(
@@ -108,7 +111,7 @@ class PhoneStreamCamera(BaseCamera):
         self._fps_counter = 0
 
     def open(self) -> bool:
-        """Open network stream connection with buffer size=1 and start grabber thread."""
+        """Open network stream with buffer=1 and start grabber thread."""
         self._last_reconnect_attempt = time.time()
         try:
             self.release()
@@ -116,13 +119,18 @@ class PhoneStreamCamera(BaseCamera):
 
             if self.probe_first:
                 if not probe_stream_connectivity(self.stream_url, timeout=0.8):
-                    logger.warning(f"Phone stream {self.stream_url} is unreachable on network. Skipping blocking connect.")
+                    logger.warning(
+                        f"Phone stream {self.stream_url} unreachable. "
+                        "Skipping blocking connect."
+                    )
                     self._is_connected = False
                     return False
 
-            logger.info(f"Opening Phone Camera Stream at {self.stream_url}...")
+            logger.info(
+                f"Opening Phone Camera Stream at {self.stream_url}..."
+            )
             cap = cv2.VideoCapture(self.stream_url)
-            # Set buffer size to 1 to minimize internal OpenCV network queueing
+            # Set buffer size to 1 to minimize internal OpenCV queueing
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             if cap.isOpened():
@@ -132,26 +140,33 @@ class PhoneStreamCamera(BaseCamera):
                     self._is_connected = True
                     self._latest_frame = test_frame
                     self._reconnect_count = 0
-                    logger.info(f"Connected to Phone Camera: {test_frame.shape[1]}x{test_frame.shape[0]}")
+                    h, w = test_frame.shape[:2]
+                    logger.info(f"Connected to Phone Camera: {w}x{h}")
 
                     if self.enable_threading:
                         self._stop_grabber.clear()
-                        self._grab_thread = threading.Thread(target=self._grab_worker, daemon=True)
+                        self._grab_thread = threading.Thread(
+                            target=self._grab_worker,
+                            daemon=True
+                        )
                         self._grab_thread.start()
                     return True
 
             if cap:
                 cap.release()
             self._is_connected = False
-            logger.warning(f"Could not open stream at {self.stream_url}. Reconnect will retry.")
+            logger.warning(
+                f"Could not open stream at {self.stream_url}. "
+                "Reconnect will retry."
+            )
             return False
         except Exception as e:
-            logger.error(f"Error opening phone stream ({self.stream_url}): {e}")
+            logger.error(f"Error opening stream ({self.stream_url}): {e}")
             self._is_connected = False
             return False
 
     def _grab_worker(self) -> None:
-        """Dedicated background thread constantly flushing and grabbing latest frame."""
+        """Dedicated background thread flushing and grabbing latest frame."""
         while not self._stop_grabber.is_set():
             if not self.cap or not self.cap.isOpened():
                 break
@@ -169,10 +184,10 @@ class PhoneStreamCamera(BaseCamera):
                     self._latest_frame = frame
                 self._new_frame_event.set()
 
-                # Calculate rolling FPS
                 now = time.time()
-                if now - self._last_fps_time >= 1.0:
-                    self.fps_measured = round(self._fps_counter / (now - self._last_fps_time), 1)
+                elapsed = now - self._last_fps_time
+                if elapsed >= 1.0:
+                    self.fps_measured = round(self._fps_counter / elapsed, 1)
                     self._fps_counter = 0
                     self._last_fps_time = now
             else:
@@ -182,8 +197,8 @@ class PhoneStreamCamera(BaseCamera):
 
     def read_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
         """
-        Reads frame from phone stream. If threaded, instantly returns the freshest
-        grabbed frame with zero buffer lag. If stream is lost, attempts auto-reconnection
+        Reads frame from phone stream. If threaded, instantly returns freshest
+        frame with zero buffer lag. If stream is lost, attempts reconnection
         and returns a live diagnostics standby HUD.
         """
         if self._is_connected and self.cap and self.cap.isOpened():
@@ -199,20 +214,36 @@ class PhoneStreamCamera(BaseCamera):
         # Stream is disconnected or not yet opened
         self._is_connected = False
         now = time.time()
-        if self.auto_reconnect and (now - self._last_reconnect_attempt) > self.reconnect_cooldown:
-            self._reconnect_count += 1
-            logger.warning(f"Phone stream disconnected. Reconnect attempt #{self._reconnect_count}...")
+        elapsed = now - self._last_reconnect_attempt
+        if self.auto_reconnect and elapsed > self.reconnect_cooldown:
+            msg = (
+                f"Phone stream disconnected. "
+                f"Reconnect #{self._reconnect_count}..."
+            )
+            logger.warning(msg)
             self.open()
 
         return True, self._generate_standby_frame()
 
     def _generate_standby_frame(self) -> np.ndarray:
-        """Generates live visual status HUD while searching for phone stream."""
+        """Visual status HUD shown while searching for phone stream."""
         frame = np.full((CAMERA_HEIGHT, CAMERA_WIDTH, 3), 15, dtype=np.uint8)
 
         # Main status card
-        cv2.rectangle(frame, (30, 140), (CAMERA_WIDTH - 30, 340), (25, 30, 45), -1)
-        cv2.rectangle(frame, (30, 140), (CAMERA_WIDTH - 30, 340), (0, 165, 255), 2)
+        cv2.rectangle(
+            frame,
+            (30, 140),
+            (CAMERA_WIDTH - 30, 340),
+            (25, 30, 45),
+            -1
+        )
+        cv2.rectangle(
+            frame,
+            (30, 140),
+            (CAMERA_WIDTH - 30, 340),
+            (0, 165, 255),
+            2
+        )
 
         # Pulse amber indicator
         pulse = int((time.time() * 3) % 2)
@@ -220,23 +251,52 @@ class PhoneStreamCamera(BaseCamera):
         cv2.circle(frame, (60, 185), 10, dot_color, -1)
 
         cv2.putText(
-            frame, "SEARCHING FOR PHONE CAMERA STREAM...",
-            (85, 192), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2, cv2.LINE_AA
+            frame,
+            "SEARCHING FOR PHONE CAMERA STREAM...",
+            (85, 192),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.65,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA
         )
 
         cv2.putText(
-            frame, f"Target URL: {self.stream_url}",
-            (60, 235), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 210, 240), 1, cv2.LINE_AA
+            frame,
+            f"Target URL: {self.stream_url}",
+            (60, 235),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (180, 210, 240),
+            1,
+            cv2.LINE_AA
         )
 
+        rc_text = (
+            f"Reconnect Attempts: {self._reconnect_count} | "
+            f"Cooldown: {self.reconnect_cooldown}s"
+        )
         cv2.putText(
-            frame, f"Reconnect Attempts: {self._reconnect_count} | Cooldown: {self.reconnect_cooldown}s",
-            (60, 265), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 160, 180), 1, cv2.LINE_AA
+            frame,
+            rc_text,
+            (60, 265),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (140, 160, 180),
+            1,
+            cv2.LINE_AA
         )
 
+        guide = "Check: 1) Phone connected to Wi-Fi  2) 'IP Webcam' app active"
         cv2.putText(
-            frame, "Check: 1) Phone connected to same Wi-Fi   2) 'IP Webcam' app active",
-            (60, 305), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (80, 200, 120), 1, cv2.LINE_AA
+            frame,
+            guide,
+            (60, 305),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (80, 200, 120),
+            1,
+            cv2.LINE_AA
         )
 
         return frame

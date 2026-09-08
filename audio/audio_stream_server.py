@@ -15,7 +15,7 @@ logger = logging.getLogger("VisionAssist.AudioServer")
 
 
 class AudioStreamServer:
-    """Manages the standalone audio relay HTTP server for wearable phone audio."""
+    """Manages audio relay HTTP server for wearable phone audio."""
 
     def __init__(self, host: str = "0.0.0.0", port: int = 8088):  # nosec B104
         self.host = host
@@ -25,15 +25,24 @@ class AudioStreamServer:
         self.is_running = False
 
     def start(self) -> None:
-        """Starts the audio relay HTTP server on a daemon background thread."""
+        """Starts the audio relay HTTP server on a daemon thread."""
         if self.is_running:
             return
         try:
-            self.server = HTTPServer((self.host, self.port), _PhoneAudioHTTPHandler)
-            self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.server = HTTPServer(
+                (self.host, self.port),
+                _PhoneAudioHTTPHandler
+            )
+            self.thread = threading.Thread(
+                target=self.server.serve_forever,
+                daemon=True
+            )
             self.thread.start()
             self.is_running = True
-            logger.info(f"AudioStreamServer running at http://{self.host}:{self.port}/phone-audio")
+            logger.info(
+                f"AudioStreamServer running at "
+                f"http://{self.host}:{self.port}/phone-audio"
+            )
         except Exception as e:
             logger.debug(f"AudioStreamServer port {self.port} notice: {e}")
 
