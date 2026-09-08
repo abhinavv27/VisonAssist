@@ -68,16 +68,24 @@ class ObjectDetector:
 
             if not self._is_mock and self.model is not None:
                 try:
-                    results = self.model(frame, verbose=False, conf=self.conf_thresh)
+                    # Query with base confidence 0.35 to capture critical hazards
+                    results = self.model(frame, verbose=False, conf=0.35)
                     detections: List[Dict[str, Any]] = []
 
                     for r in results:
                         boxes = r.boxes
                         for box in boxes:
                             cls_id = int(box.cls[0].item())
-                            cls_name = r.names.get(cls_id, f"obj_{cls_id}")
+                            cls_name = r.names.get(cls_id, f"obj_{cls_id}").lower()
                             conf = float(box.conf[0].item())
                             x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+
+                            # Special handling for critical mobility hazards (vehicles):
+                            # Allow cars/trucks/buses at lower threshold (>= 0.38)
+                            is_vehicle = cls_name in ("car", "bus", "truck", "motorcycle")
+                            thresh = 0.38 if is_vehicle else self.conf_thresh
+                            if conf < thresh:
+                                continue
 
                             x_center = (x1 + x2) / 2.0
                             y_center = (y1 + y2) / 2.0

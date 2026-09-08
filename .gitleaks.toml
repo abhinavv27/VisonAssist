@@ -1,0 +1,20 @@
+# Gitleaks Configuration for VisionAssist
+title = "VisionAssist Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist synthetic test scenes, scenarios, and test hashes"
+paths = [
+    '''tests/scenarios/.*''',
+    '''tests/test_scenes/.*''',
+    '''\.gitleaksignore''',
+    '''\.gitleaks\.toml''',
+    '''demo_props/.*'''
+]
+regexes = [
+    '''4c39a89[0-9a-fA-F]+''',
+    '''a7a0462[0-9a-fA-F]+''',
+    '''90f5e05[0-9a-fA-F]+'''
+]

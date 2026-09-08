@@ -6,7 +6,7 @@ Formula from Master Project Report Section 09:
     RISK SCORE = proximity_score + centrality_score + object_danger_score + uncertainty_factor
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from config import (
     OBJECT_DANGER_WEIGHTS,
     DEFAULT_OBJECT_DANGER,
@@ -29,7 +29,8 @@ class RiskEngine:
         distance_meters: float,
         position: str,
         is_moving: bool = False,
-        confidence: float = 1.0
+        confidence: float = 1.0,
+        frame_brightness: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Calculates composite risk score and priority tier.
@@ -77,11 +78,17 @@ class RiskEngine:
 
         # 4. Movement / Uncertainty Factor (0 - 10 points)
         movement_factor = 10.0 if is_moving else 0.0
+        uncertainty_adjustment = 0.0
         if confidence < 0.5:
             # Slightly downweight very uncertain detections
-            uncertainty_adjustment = -5.0
-        else:
-            uncertainty_adjustment = 0.0
+            uncertainty_adjustment -= 5.0
+
+        # Lighting penalty for extreme glare or severe underexposure
+        if frame_brightness is not None:
+            if frame_brightness < 45.0:
+                uncertainty_adjustment -= 6.0
+            elif frame_brightness > 215.0:
+                uncertainty_adjustment -= 5.0
 
         composite_score = object_danger_score + proximity_score + centrality_score + movement_factor + uncertainty_adjustment
         composite_score = max(0.0, min(100.0, round(composite_score, 1)))

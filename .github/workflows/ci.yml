@@ -5,12 +5,14 @@ on:
     branches:
       - main
       - abhinav
+      - frontend
       - 'feature/**'
       - 'fix/**'
   pull_request:
     branches:
       - main
       - abhinav
+      - frontend
 
 # Cancel in-progress runs for the same PR/branch when new commits are pushed
 concurrency:

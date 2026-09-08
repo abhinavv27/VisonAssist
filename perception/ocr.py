@@ -63,16 +63,27 @@ class OCRReader:
             # Low-light (< 40), localized glare hotspot on dark background, or washed-out overexposure
             saturated_ratio = float(np.mean(gray > 220))
             is_low_light = mean_brightness < 40.0
-            is_glare_hotspot = (mean_brightness < 70.0 and saturated_ratio > 0.03)
-            is_washed_out = (mean_brightness > 230.0 and contrast_std < 20.0)
+            is_glare_hotspot = (mean_brightness < 70.0 and saturated_ratio > 0.02)
+            is_washed_out = (mean_brightness > 220.0 and contrast_std < 22.0)
             is_lighting_degraded = is_low_light or is_glare_hotspot or is_washed_out
+
+            # Early graceful fallback under degraded lighting (glare / low-light)
+            if is_lighting_degraded:
+                logger.info("OCR scene degraded by glare or low-light; returning assistive retry fallback.")
+                return [{
+                    "text": "Text appears unclear, please adjust lighting or move closer.",
+                    "confidence": 0.20,
+                    "bbox": [0, 0, w, h],
+                    "is_unclear": True
+                }]
 
             if not self._is_mock and self.reader is not None:
                 results = self.reader.readtext(frame)
                 extracted = []
+                valid_texts = []
                 for bbox, text, conf in results:
                     clean_text = text.strip()
-                    if conf > 0.35 and len(clean_text) > 1:
+                    if conf > 0.25 and len(clean_text) > 0:
                         xs = [p[0] for p in bbox]
                         ys = [p[1] for p in bbox]
                         extracted.append({
@@ -81,27 +92,33 @@ class OCRReader:
                             "bbox": [int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))],
                             "is_unclear": False
                         })
+                        valid_texts.append(clean_text)
 
-                if not extracted and is_lighting_degraded:
-                    logger.info("OCR failed due to extreme glare or low-light; returning graceful fallback.")
-                    return [{
-                        "text": "Text unclear, please adjust lighting or move closer.",
-                        "confidence": 0.20,
-                        "bbox": [0, 0, w, h],
-                        "is_unclear": True
-                    }]
-                return extracted
+                if extracted:
+                    # If multiple sign fragments/lines were detected, assemble full sign text
+                    if len(extracted) > 1:
+                        full_sign_text = " - ".join(valid_texts)
+                        avg_conf = round(float(np.mean([item["confidence"] for item in extracted])), 2)
+                        min_x = min(item["bbox"][0] for item in extracted)
+                        min_y = min(item["bbox"][1] for item in extracted)
+                        max_x = max(item["bbox"][2] for item in extracted)
+                        max_y = max(item["bbox"][3] for item in extracted)
+                        extracted.insert(0, {
+                            "text": full_sign_text,
+                            "confidence": avg_conf,
+                            "bbox": [min_x, min_y, max_x, max_y],
+                            "is_unclear": False
+                        })
+                    return extracted
 
-            # Mock / Test execution mode
-            if is_lighting_degraded:
                 return [{
-                    "text": "Text unclear, please adjust lighting or move closer.",
+                    "text": "Text appears unclear, please adjust lighting or move closer.",
                     "confidence": 0.20,
                     "bbox": [0, 0, w, h],
                     "is_unclear": True
                 }]
 
-            # Default clean mock response
+            # Clean mock response for developer scaffolding & headless tests
             return [{
                 "text": "Room 204 - Computer Science Lab",
                 "confidence": 0.95,
