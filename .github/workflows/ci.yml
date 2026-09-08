@@ -62,13 +62,5 @@ jobs:
 
       - name: Verify End-to-End Pipeline Loop (Headless Mock Mode)
         run: |
-          python -c "
-          import time, threading
-          from app import run_cli_loop
-          from config import ProductMode
-          print('Testing end-to-end perception and reasoning pipeline...')
-          t = threading.Thread(target=run_cli_loop, args=(ProductMode.OBSTACLE_AWARENESS, True, True), daemon=True)
-          t.start()
-          time.sleep(3.0)
-          print('Pipeline verified successfully with 0 errors!')
-          "
+          python -c "from app import run_cli_loop; from config import ProductMode; print('Testing end-to-end perception and reasoning pipeline...'); run_cli_loop(ProductMode.OBSTACLE_AWARENESS, use_mock=True, no_gui=True, max_iterations=5); print('Pipeline verified successfully with 0 errors!')"
+

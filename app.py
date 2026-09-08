@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import cv2
 
@@ -39,7 +40,8 @@ def run_cli_loop(
     mode: ProductMode,
     use_mock: bool = False,
     no_gui: bool = False,
-    stream_url: str = None
+    stream_url: str = None,
+    max_iterations: Optional[int] = None
 ):
     """
     Core closed-loop execution:
@@ -100,9 +102,17 @@ def run_cli_loop(
 
     prev_time = time.time()
     active_mode = mode
+    iteration = 0
 
     try:
         while True:
+            iteration += 1
+            if max_iterations is not None and iteration > max_iterations:
+                logger.info(
+                    f"Completed {max_iterations} iterations. Exiting cleanly."
+                )
+                break
+
             ret, frame = camera.read_frame()
             if not ret or frame is None:
                 time.sleep(0.01)
