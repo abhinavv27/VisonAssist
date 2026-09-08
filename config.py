@@ -92,5 +92,5 @@ TTS_VOLUME = 1.0
 VOICE_NAME_HINT = "David"  # Or "Zira" / default system voice
 
 # YOLO Model Settings
-YOLO_MODEL_NAME = "yolov8n.pt"
-YOLO_CONFIDENCE_THRESHOLD = 0.40
+YOLO_MODEL_NAME = "yolov8m.pt"  # upgraded model for higher accuracy
+YOLO_CONFIDENCE_THRESHOLD = 0.50  # increased confidence for more reliable detections
