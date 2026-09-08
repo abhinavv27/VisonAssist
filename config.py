@@ -24,8 +24,9 @@ class ProductMode(str, Enum):
 # Default Mode
 DEFAULT_MODE = ProductMode.OBSTACLE_AWARENESS
 
-# Camera Settings
+# Camera & Phone Streaming Settings
 DEFAULT_CAMERA_INDEX = 0
+PHONE_STREAM_URL = "http://192.168.43.1:8080/video"  # Default IP Webcam / RTSP stream address
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 TARGET_FPS = 30

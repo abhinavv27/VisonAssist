@@ -19,8 +19,9 @@ from pathlib import Path
 
 import cv2
 
-from config import ProductMode, DEFAULT_MODE, CAMERA_WIDTH, CAMERA_HEIGHT
+from config import ProductMode, DEFAULT_MODE, CAMERA_WIDTH, CAMERA_HEIGHT, PHONE_STREAM_URL
 from input.webcam import OpenCVWebcam
+from input.phone_stream import PhoneStreamCamera
 from perception.object_detection import ObjectDetector
 from perception.ocr import OCRReader
 from intelligence.context_engine import ContextEngine
@@ -33,18 +34,33 @@ from utils.drawing import draw_visual_annotations
 logger = setup_logger("VisionAssist.App")
 
 
-def run_cli_loop(mode: ProductMode, use_mock: bool = False, no_gui: bool = False):
+def run_cli_loop(
+    mode: ProductMode,
+    use_mock: bool = False,
+    no_gui: bool = False,
+    stream_url: str = None
+):
     """
     Core closed-loop execution:
-    Camera -> Perception -> Context/Risk -> Priority -> Response Gen -> TTS
+    Camera (Phone/Webcam) -> Perception -> Context/Risk -> Priority -> Response Gen -> TTS
     """
-    logger.info("Initializing VisionAssist MVP v0 Pipeline...")
+    logger.info("Initializing VisionAssist MVP Pipeline...")
 
-    # 1. Input layer
-    camera = OpenCVWebcam(fallback_to_mock=use_mock)
+    # 1. Input layer (Phone Stream or Laptop Webcam)
+    if stream_url:
+        logger.info(f"Connecting to Phone Camera Stream at: {stream_url}")
+        camera = PhoneStreamCamera(stream_url)
+    else:
+        camera = OpenCVWebcam(fallback_to_mock=use_mock)
+
     if not camera.open():
-        logger.error("Could not open camera stream. Exiting.")
-        return
+        logger.error(f"Could not open camera stream ({'Phone Stream' if stream_url else 'Webcam'}).")
+        if not stream_url and not use_mock:
+            logger.info("Falling back to simulated mock stream...")
+            camera = OpenCVWebcam(fallback_to_mock=True)
+            camera.open()
+        else:
+            return
 
     # 2. Perception layer
     detector = ObjectDetector()
@@ -170,6 +186,13 @@ def main():
     parser.add_argument("--mock", action="store_true", help="Use simulated test frames (no webcam required)")
     parser.add_argument("--no-gui", action="store_true", help="Run in headless terminal mode without OpenCV window")
     parser.add_argument(
+        "--phone-stream",
+        nargs="?",
+        const=PHONE_STREAM_URL,
+        default=None,
+        help=f"Connect to phone camera stream (default: {PHONE_STREAM_URL})"
+    )
+    parser.add_argument(
         "--mode",
         choices=["quick_look", "obstacle", "read", "ask", "safety_alert"],
         default="obstacle",
@@ -189,7 +212,12 @@ def main():
             "safety_alert": ProductMode.SAFETY_ALERT,
         }
         selected_mode = mode_map.get(args.mode, DEFAULT_MODE)
-        run_cli_loop(mode=selected_mode, use_mock=args.mock, no_gui=args.no_gui)
+        run_cli_loop(
+            mode=selected_mode,
+            use_mock=args.mock,
+            no_gui=args.no_gui,
+            stream_url=args.phone_stream
+        )
 
 
 if __name__ == "__main__":
