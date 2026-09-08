@@ -1,13 +1,13 @@
 """
-VisionAssist - Streamlit Monitoring & Observer Dashboard
-========================================================
+VisionAssist - Streamlit Monitoring & Observer Console (Phase 4)
+================================================================
 Designed for judges and observers during live demonstrations.
 Implements the 3-panel layout from Master Project Report Section 20:
 - Panel 1: LIVE VIEW (Phone / Webcam feed with spatial tracking & risk overlays)
 - Panel 2: DETECTED OBJECTS (Object classification & confidence breakdown)
 - Panel 3: PRIORITY QUEUE (HIGH, MED, LOW priority matrix)
 - Banner: CURRENT AUDIO announcement
-- Input Source Switcher: Live Phone Stream / Webcam / Curated Test Scenes
+- Status Row: Camera | Detection | OCR | TTS = Connected / Running / Ready
 """
 
 import sys
@@ -18,9 +18,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# flake8: noqa: E402
 import time
 import cv2
 import numpy as np
+
 try:
     import streamlit as st
 except ImportError:
@@ -46,13 +48,14 @@ from tests.test_scenes import (
 
 
 def inject_custom_css():
-    """Inject high-contrast dark theme and accessibility styling."""
+    """Inject dark theme and accessibility styling from Section 20."""
     st.markdown("""
         <style>
         .stApp {
-            background-color: #0A0D14;
+            background-color: #101828;
             color: #ECEAE4;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         Roboto, sans-serif;
         }
 
         /* Top Header */
@@ -66,20 +69,20 @@ def inject_custom_css():
         .header-subtitle {
             font-size: 0.95rem;
             color: #94A3B8;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
 
-        /* Audio Banner */
+        /* High-contrast Top Audio Banner */
         .audio-banner {
             background: linear-gradient(90deg, #09373B 0%, #0E5359 100%);
             border: 1px solid #16808C;
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 16px 22px;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             color: #E6FFFA;
             font-weight: 600;
-            font-size: 1.2rem;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+            font-size: 1.25rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         }
         .audio-banner span {
             color: #5EEAD4;
@@ -87,47 +90,55 @@ def inject_custom_css():
             letter-spacing: 0.05em;
         }
 
-        /* Status Strip */
+        /* Status Strip from Section 20 */
         .status-strip {
-            background-color: #121824;
-            border-top: 1px solid #222C3D;
-            border-bottom: 1px solid #222C3D;
-            padding: 9px 18px;
-            font-size: 0.85rem;
-            color: #8B949E;
+            background-color: #1E293B;
+            border: 1px solid #334155;
+            padding: 10px 18px;
+            font-size: 0.88rem;
+            color: #94A3B8;
             font-family: monospace;
-            border-radius: 6px;
+            border-radius: 8px;
             margin-bottom: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
         }
         .status-strip b {
             color: #38BDF8;
         }
         .status-strip .dot {
-            height: 8px;
-            width: 8px;
+            height: 9px;
+            width: 9px;
             background-color: #10B981;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 6px;
+            margin-right: 5px;
         }
 
-        /* Priority Cards */
+        /* Priority Cards with Pulse Effect */
         .card-high {
-            background-color: rgba(239, 68, 68, 0.15);
+            background-color: rgba(239, 68, 68, 0.18);
             border-left: 4px solid #EF4444;
-            padding: 10px 14px;
+            padding: 11px 14px;
             margin-bottom: 8px;
-            border-radius: 4px;
-            font-weight: 600;
+            border-radius: 6px;
+            font-weight: 700;
             color: #FCA5A5;
+            animation: pulse-red 2s infinite;
         }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.3); }
+        }
+
         .card-med {
             background-color: rgba(245, 158, 11, 0.15);
             border-left: 4px solid #F59E0B;
-            padding: 10px 14px;
+            padding: 11px 14px;
             margin-bottom: 8px;
-            border-radius: 4px;
-            font-weight: 500;
+            border-radius: 6px;
+            font-weight: 600;
             color: #FCD34D;
         }
         .card-low {
@@ -135,7 +146,7 @@ def inject_custom_css():
             border-left: 4px solid #64748B;
             padding: 10px 14px;
             margin-bottom: 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             color: #94A3B8;
         }
         </style>
@@ -143,42 +154,34 @@ def inject_custom_css():
 
 
 def init_session_state():
+    """Initializes persistent pipeline objects and telemetry state."""
     if "detector" not in st.session_state:
         st.session_state.detector = ObjectDetector()
-
     if "ocr" not in st.session_state:
         st.session_state.ocr = OCRReader()
-
     if "context_engine" not in st.session_state:
         st.session_state.context_engine = ContextEngine()
-
     if "priority_engine" not in st.session_state:
         st.session_state.priority_engine = PriorityEngine()
-
     if "response_generator" not in st.session_state:
         st.session_state.response_generator = ResponseGenerator()
-
-    if "tts" not in st.session_state:
-        st.session_state.tts = TextToSpeechEngine()
-
     if "ask_engine" not in st.session_state:
         st.session_state.ask_engine = AskEngine()
-
+    if "tts" not in st.session_state:
+        st.session_state.tts = TextToSpeechEngine()
     if "last_speech" not in st.session_state:
-        st.session_state.last_speech = "VisionAssist initialized. Ready."
-
+        st.session_state.last_speech = "VisionAssist online. Audio active."
     if "speech_history" not in st.session_state:
         st.session_state.speech_history = []
-
-    if "current_feed_type" not in st.session_state:
-        st.session_state.current_feed_type = "Mock Scene"
+    if "language" not in st.session_state:
+        st.session_state.language = "en"
 
 
 def render_dashboard():
+    """Renders the Streamlit observer dashboard matching Section 20."""
     if st is None:
         raise ImportError(
-            "Streamlit is not installed in the current environment. "
-            "Please run 'pip install streamlit' to launch the visual observer dashboard."
+            "Streamlit is not installed. Run 'pip install streamlit'."
         )
     st.set_page_config(
         page_title="VisionAssist · Observer Console",
@@ -189,9 +192,16 @@ def render_dashboard():
     init_session_state()
 
     # Header
-    st.markdown('<div class="header-title">👁️ VISIONASSIST</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="header-subtitle">Context-Aware Wearable Vision Assistance for Visually Impaired Users · "See the world through sound"</div>',
+        '<div class="header-title">👁️ VISIONASSIST</div>',
+        unsafe_allow_html=True
+    )
+    subtitle = (
+        'Context-Aware Wearable Vision Assistance for Visually Impaired Users '
+        '· "See the world through sound"'
+    )
+    st.markdown(
+        f'<div class="header-subtitle">{subtitle}</div>',
         unsafe_allow_html=True
     )
 
@@ -203,14 +213,21 @@ def render_dashboard():
         st.markdown("**Camera Feed Source**")
         feed_source = st.radio(
             "Select Input Feed",
-            options=["Phone Camera Stream", "Laptop Webcam", "Curated Test Scene"],
+            options=[
+                "Phone Camera Stream",
+                "Laptop Webcam",
+                "Curated Test Scene"
+            ],
             index=2
         )
 
         stream_url = PHONE_STREAM_URL
         test_scene_choice = "Classroom with Chair"
         if feed_source == "Phone Camera Stream":
-            stream_url = st.text_input("Phone Stream URL", value=PHONE_STREAM_URL)
+            stream_url = st.text_input(
+                "Phone Stream URL",
+                value=PHONE_STREAM_URL
+            )
         elif feed_source == "Curated Test Scene":
             test_scene_choice = st.selectbox(
                 "Demo Scene",
@@ -245,7 +262,16 @@ def render_dashboard():
         )
         selected_mode = ProductMode(mode_option)
 
-        # 3. Ask Mode Input
+        # 3. Multilingual Audio Toggle (Phase 4 Demo Requirement)
+        st.markdown("**Multilingual Speech Guidance**")
+        lang_choice = st.radio(
+            "Speech Language",
+            options=["English", "Hindi (हिंदी)"],
+            horizontal=True
+        )
+        st.session_state.language = "hi" if "Hindi" in lang_choice else "en"
+
+        # 4. Ask Mode Query Input
         user_query = ""
         submit_query = False
         if selected_mode == ProductMode.ASK:
@@ -259,7 +285,10 @@ def render_dashboard():
                 if st.button("🔤 Read sign", use_container_width=True):
                     user_query = "Read the sign in front of me"
                     submit_query = True
-            entered_q = st.text_input("Ask a question about the scene:", value=user_query or "What is in front of me?")
+            entered_q = st.text_input(
+                "Ask a question about the scene:",
+                value=user_query or "What is in front of me?"
+            )
             if st.button("💬 Ask VisionAssist", use_container_width=True):
                 user_query = entered_q
                 submit_query = True
@@ -267,14 +296,19 @@ def render_dashboard():
                 user_query = entered_q
 
         st.divider()
+
+        # 5. Voice Trigger Simulation & Audio Mute
         audio_muted = st.checkbox("Mute Audio Output", value=False)
         st.session_state.tts.mute = audio_muted
 
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            trigger_action = st.button("📸 Trigger Read / Snapshot", use_container_width=True)
+            trigger_action = st.button(
+                "🎙️ 'Vision, look' Wake Trigger",
+                use_container_width=True
+            )
         with col_b2:
-            if st.button("🔄 Reset Audio Cooldown", use_container_width=True):
+            if st.button("🔄 Reset Cooldown", use_container_width=True):
                 st.session_state.priority_engine.reset_cooldown()
 
         st.divider()
@@ -282,23 +316,22 @@ def render_dashboard():
         for item in reversed(st.session_state.speech_history[-5:]):
             st.text(f"• {item}")
 
-    # Top Status Strip
+    # Top Status Strip (Exact spec Section 20)
     st.markdown(
         f"""
         <div class="status-strip">
-            <span class="dot"></span>
-            Feed: <b>{feed_source}</b> &nbsp;|&nbsp; 
-            Inference: <b>YOLOv8 Active</b> &nbsp;|&nbsp; 
-            OCR: <b>EasyOCR Ready</b> &nbsp;|&nbsp; 
-            TTS: <b>Audio Streamer (Port 8088)</b> &nbsp;|&nbsp;
-            Latency: <b>~34ms (29 FPS)</b>
+            <span><span class="dot"></span>Camera: <b>Connected</b></span>
+            <span><span class="dot"></span>Detection: <b>Running (YOLOv8)</b></span>
+            <span><span class="dot"></span>OCR: <b>Ready (EasyOCR)</b></span>
+            <span><span class="dot"></span>TTS: <b>Active (Port 8088)</b></span>
+            <span>Feed: <b>{feed_source}</b></span>
+            <span>Language: <b>{lang_choice}</b></span>
         </div>
         """,
         unsafe_allow_html=True
     )
 
     # Frame Acquisition
-    t0 = time.perf_counter()
     frame = None
 
     if feed_source == "Laptop Webcam":
@@ -307,7 +340,8 @@ def render_dashboard():
             st.session_state.webcam.open()
         ret, frame = st.session_state.webcam.read_frame()
     elif feed_source == "Phone Camera Stream":
-        if "phone_cam" not in st.session_state or st.session_state.get("last_url") != stream_url:
+        last_url = st.session_state.get("last_url")
+        if "phone_cam" not in st.session_state or last_url != stream_url:
             st.session_state.phone_cam = PhoneStreamCamera(stream_url)
             st.session_state.phone_cam.open()
             st.session_state.last_url = stream_url
@@ -336,10 +370,11 @@ def render_dashboard():
         )
 
         # OCR if in read mode or asked to read
-        if selected_mode == ProductMode.READ or (selected_mode == ProductMode.ASK and "sign" in user_query.lower()):
+        is_read_q = selected_mode == ProductMode.ASK and "sign" in user_query.lower()
+        if selected_mode == ProductMode.READ or is_read_q:
             ocr_items = st.session_state.ocr.read_text(frame)
 
-        # In Mode 4 (Ask), use AskEngine for grounded Q&A when query is submitted or action triggered
+        # Mode 4 (Ask) Grounded Visual Q&A
         if selected_mode == ProductMode.ASK and (submit_query or trigger_action):
             answer = st.session_state.ask_engine.ask(
                 query=user_query,
@@ -349,28 +384,41 @@ def render_dashboard():
             )
             if answer:
                 st.session_state.last_speech = answer
-                st.session_state.speech_history.append(f"{time.strftime('%H:%M:%S')} [Mode 4 Ask] {answer}")
+                ts = time.strftime('%H:%M:%S')
+                log_entry = f"{ts} [Mode 4 Ask] {answer}"
+                st.session_state.speech_history.append(log_entry)
                 st.session_state.tts.speak(answer, interrupt=True)
         else:
             # Priority decision for Modes 1, 2, 3, 5
-            force_now = trigger_action or (selected_mode == ProductMode.QUICK_LOOK)
+            is_snap = trigger_action or (selected_mode == ProductMode.QUICK_LOOK)
+            q_val = user_query if selected_mode == ProductMode.ASK else None
             prioritized = st.session_state.priority_engine.select_top_item(
                 context_items=context_items,
                 mode=selected_mode,
                 ocr_items=ocr_items,
-                force_refresh=force_now,
-                user_query=user_query if selected_mode == ProductMode.ASK else None
+                force_refresh=is_snap,
+                user_query=q_val
             )
 
             # Generate response text & speak
             if prioritized:
-                response = st.session_state.response_generator.generate(prioritized)
-                speech_text = response.get("text", "")
+                resp = st.session_state.response_generator.generate(
+                    prioritized,
+                    language=st.session_state.language
+                )
+                speech_text = resp.get("text", "")
                 if speech_text and speech_text != st.session_state.last_speech:
                     st.session_state.last_speech = speech_text
-                    st.session_state.speech_history.append(f"{time.strftime('%H:%M:%S')} {speech_text}")
-                    is_critical = prioritized.get("is_critical", False) or (selected_mode == ProductMode.SAFETY_ALERT)
-                    st.session_state.tts.speak(speech_text, interrupt=is_critical, priority=is_critical)
+                    ts = time.strftime('%H:%M:%S')
+                    st.session_state.speech_history.append(f"{ts} {speech_text}")
+                    crit = prioritized.get("is_critical", False) or (
+                        selected_mode == ProductMode.SAFETY_ALERT
+                    )
+                    st.session_state.tts.speak(
+                        speech_text,
+                        interrupt=crit,
+                        priority=crit
+                    )
 
         # Visual Annotations
         annotated_frame = draw_visual_annotations(
@@ -383,27 +431,31 @@ def render_dashboard():
     else:
         annotated_rgb = np.zeros((480, 640, 3), dtype=np.uint8)
 
-    # 1. CURRENT AUDIO BANNER
+    # 1. High-Contrast CURRENT AUDIO BANNER
     st.markdown(
         f"""
         <div class="audio-banner">
-            <span>CURRENT AUDIO:</span> &ldquo;{st.session_state.last_speech}&rdquo;
+            <span>🔊 CURRENT AUDIO:</span> &ldquo;{st.session_state.last_speech}&rdquo;
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # 2. Main 3-Panel Layout
+    # 2. Main 3-Panel Layout (Section 20)
     col_live, col_objects, col_priority = st.columns([5, 3, 3])
 
     # Panel 1: Live View
     with col_live:
-        st.subheader("📹 LIVE VIEW")
-        st.image(annotated_rgb, use_container_width=True, caption=f"Active Stream: {feed_source}")
+        st.subheader("📹 PANEL 1: LIVE VIEW")
+        st.image(
+            annotated_rgb,
+            use_container_width=True,
+            caption=f"Camera Input: {feed_source}"
+        )
 
     # Panel 2: Detected Objects
     with col_objects:
-        st.subheader("📦 DETECTED OBJECTS")
+        st.subheader("📦 PANEL 2: DETECTED OBJECTS")
         if context_items:
             for item in context_items:
                 obj_name = item["object"].capitalize()
@@ -411,7 +463,9 @@ def render_dashboard():
                 pos = item["position"]
                 dist = item["distance"]
                 moving_tag = " · 🏃 Approaching" if item.get("is_moving") else ""
-                st.markdown(f"**{obj_name}** (`{conf}%` confidence){moving_tag}")
+                st.markdown(
+                    f"**{obj_name}** (`{conf}%` confidence){moving_tag}"
+                )
                 st.caption(f"Position: {pos} · Distance: {dist}m")
                 st.divider()
         elif selected_mode == ProductMode.READ and ocr_items:
@@ -424,29 +478,37 @@ def render_dashboard():
 
     # Panel 3: Priority Queue
     with col_priority:
-        st.subheader("🎯 PRIORITY QUEUE")
+        st.subheader("🎯 PANEL 3: PRIORITY MATRIX")
         high_items = [i for i in context_items if i["priority"] == "HIGH"]
         med_items = [i for i in context_items if i["priority"] == "MEDIUM"]
         low_items = [i for i in context_items if i["priority"] == "LOW"]
 
         for item in high_items:
+            name = item['object'].capitalize()
+            dist = item['distance']
+            score = item['risk_score']
             st.markdown(
-                f"""<div class="card-high">■ HIGH — {item['object'].capitalize()} ({item['distance']}m) · Score {item['risk_score']}</div>""",
+                f'<div class="card-high">■ HIGH — {name} ({dist}m) · Score {score}</div>',
                 unsafe_allow_html=True
             )
         for item in med_items:
+            name = item['object'].capitalize()
+            dist = item['distance']
+            score = item['risk_score']
             st.markdown(
-                f"""<div class="card-med">■ MED — {item['object'].capitalize()} ({item['distance']}m) · Score {item['risk_score']}</div>""",
+                f'<div class="card-med">■ MED — {name} ({dist}m) · Score {score}</div>',
                 unsafe_allow_html=True
             )
         for item in low_items:
+            name = item['object'].capitalize()
+            dist = item['distance']
             st.markdown(
-                f"""<div class="card-low">■ LOW — {item['object'].capitalize()} ({item['distance']}m) [Suppressed]</div>""",
+                f'<div class="card-low">■ LOW — {name} ({dist}m) [Suppressed]</div>',
                 unsafe_allow_html=True
             )
 
         if not context_items:
-            st.caption("Awaiting objects...")
+            st.caption("Awaiting objects in camera view...")
 
 
 if __name__ == "__main__":

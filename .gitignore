@@ -22,3 +22,9 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Generated Demo Media
+demo/*.mp4
+demo/*.avi
+!demo/.gitkeep
+

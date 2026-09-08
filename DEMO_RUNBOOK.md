@@ -98,9 +98,12 @@ This runbook gives the exact timing, speech cues, physical actions, and software
 - [ ] **Network Check**: Adrit's laptop and the smartphone are connected to the same Wi-Fi / Hotspot.
 - [ ] **Stream Check**: Open `http://<PHONE_IP>:8080/video` in browser to verify camera frames are streaming.
 - [ ] **Audio Relay Check**: Open `http://<ADRIT_IP>:8088/phone-audio` on the phone's browser, tap *"Enable Audio"*, and verify speech plays through phone speaker.
+- [ ] **Automated Rehearsal Check**: Run `py scripts/rehearse_demo.py` to verify the full 6-stage demo runs smoothly under 3 minutes.
+- [ ] **Backup Demo Video Ready**: Verify `demo/backup_demo.mp4` exists (generated via `py scripts/record_backup_demo.py`).
 - [ ] **Benchmark Check**: Run `py app.py --benchmark` to ensure loop latency is `< 40ms`.
 - [ ] **Dashboard Check**: Launch `py app.py --streamlit` on the presentation screen.
 - [ ] **Physical Props Ready**:
   - Chair obstacle
   - Water bottle distractor
   - Printed `demo_props/room_sign.html`
+
