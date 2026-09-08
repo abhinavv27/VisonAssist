@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionAssist OCR Demo Sign</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #F3F4F6;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .signage-plate {
+            background-color: #FFFFFF;
+            border: 8px solid #0F172A;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.18);
+            width: 800px;
+            padding: 60px 40px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .dept-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #E2E8F0;
+            padding-bottom: 16px;
+        }
+        .room-number {
+            font-size: 4.8rem;
+            font-weight: 900;
+            color: #0F172A;
+            letter-spacing: -0.02em;
+            margin: 10px 0;
+            line-height: 1;
+        }
+        .room-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #1E3A8A;
+            letter-spacing: -0.01em;
+            margin: 15px 0 25px 0;
+            text-transform: uppercase;
+        }
+        .sub-bar {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            padding: 12px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+        @media print {
+            body { background: white; }
+            .signage-plate { box-shadow: none; border: 6px solid black; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="signage-plate">
+        <div class="dept-header">Manipal University Jaipur · School of Computing</div>
+        <div class="room-number">ROOM 204</div>
+        <div class="room-title">Computer Science Lab</div>
+        <div class="sub-bar">Artificial Intelligence & Robotics Research Facility</div>
+    </div>
+</body>
+</html>

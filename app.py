@@ -193,6 +193,7 @@ def launch_streamlit():
 def main():
     parser = argparse.ArgumentParser(description="VisionAssist Accessibility Platform")
     parser.add_argument("--streamlit", action="store_true", help="Launch Streamlit UI dashboard")
+    parser.add_argument("--benchmark", action="store_true", help="Run end-to-end latency and throughput benchmark")
     parser.add_argument("--mock", action="store_true", help="Use simulated test frames (no webcam required)")
     parser.add_argument("--no-gui", action="store_true", help="Run in headless terminal mode without OpenCV window")
     parser.add_argument(
@@ -211,7 +212,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.streamlit:
+    if args.benchmark:
+        from utils.benchmark import PipelineBenchmark
+        PipelineBenchmark().run(mock_stream=True)
+    elif args.streamlit:
         launch_streamlit()
     else:
         mode_map = {
