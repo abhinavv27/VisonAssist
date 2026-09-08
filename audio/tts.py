@@ -12,32 +12,146 @@ import logging
 import queue
 import threading
 import time
+import json
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 
 from config import TTS_RATE, TTS_VOLUME
 
 logger = logging.getLogger("VisionAssist.Audio")
 
+# Shared state for phone audio streaming
+_LATEST_SPEECH = {"id": 0, "text": "", "timestamp": 0.0}
+_SPEECH_LOCK = threading.Lock()
+
+
+class _PhoneAudioHTTPHandler(BaseHTTPRequestHandler):
+    """Serves audio stream API and browser audio client to smartphone."""
+
+    def log_message(self, format, *args):
+        # Suppress noisy HTTP request logging
+        pass
+
+    def do_GET(self):
+        if self.path == "/api/speech":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            with _SPEECH_LOCK:
+                data = json.dumps(_LATEST_SPEECH).encode("utf-8")
+            self.wfile.write(data)
+        elif self.path in ("/", "/phone-audio"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            html = """<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionAssist · Phone Audio Client</title>
+    <style>
+        body { background: #0A0D14; color: #ECEAE4; font-family: sans-serif; text-align: center; padding: 30px; }
+        .card { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 24px; max-width: 400px; margin: auto; }
+        .status { color: #38BDF8; font-weight: bold; margin-bottom: 16px; }
+        .utterance { font-size: 1.2rem; color: #5EEAD4; min-height: 60px; margin: 20px 0; font-weight: 600; }
+        button { background: #2563EB; color: white; border: none; padding: 14px 28px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>👁️ VisionAssist</h2>
+        <div class="status">● Phone Audio Output Connected</div>
+        <button id="enableBtn" onclick="enableAudio()">🔊 Tap to Enable Audio</button>
+        <div class="utterance" id="textDisplay">Awaiting guidance...</div>
+        <p style="color: #8B949E; font-size: 0.85rem;">Audio guidance will play automatically through this phone's speaker / earphones.</p>
+    </div>
+    <script>
+        let lastId = 0;
+        let audioEnabled = false;
+
+        function enableAudio() {
+            audioEnabled = true;
+            document.getElementById('enableBtn').style.display = 'none';
+            speak("VisionAssist phone audio enabled. System ready.");
+            setInterval(pollSpeech, 400);
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis || !text) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 1.05;
+            window.speechSynthesis.speak(u);
+            document.getElementById('textDisplay').innerText = '"' + text + '"';
+        }
+
+        async function pollSpeech() {
+            try {
+                const res = await fetch('/api/speech');
+                const data = await res.json();
+                if (data.id > lastId && data.text) {
+                    lastId = data.id;
+                    speak(data.text);
+                }
+            } catch (e) {}
+        }
+    </script>
+</body>
+</html>"""
+            self.wfile.write(html.encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
 
 class TextToSpeechEngine:
     """
     Asynchronous Speech Synthesizer.
-    Pushes speech jobs to a background queue so camera processing is never blocked.
+    Pushes speech jobs to a background queue and broadcasts to Phone Audio Client.
     """
 
-    def __init__(self, rate: int = TTS_RATE, volume: float = TTS_VOLUME, mute: bool = False):
+    def __init__(
+        self,
+        rate: int = TTS_RATE,
+        volume: float = TTS_VOLUME,
+        mute: bool = False,
+        phone_audio_host: Optional[str] = None,
+        phone_audio_port: int = 8088
+    ):
         self.rate = rate
         self.volume = volume
         self.mute = mute
+        self.phone_audio_host = phone_audio_host or "0.0.0.0"  # nosec B104
+        self.phone_audio_port = phone_audio_port
         self._speech_queue: queue.Queue = queue.Queue(maxsize=10)
         self._stop_event = threading.Event()
         self._current_utterance: Optional[str] = None
+        self._utterance_counter = 0
+
+        # Background synthesis worker
         self._speech_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._speech_thread.start()
 
+        # Background phone audio relay HTTP server
+        self._start_phone_server()
+
+    def _start_phone_server(self):
+        def _run_server():
+            try:
+                # Binds to local Wi-Fi / LAN interface so phone can receive audio
+                server = HTTPServer((self.phone_audio_host, self.phone_audio_port), _PhoneAudioHTTPHandler)
+                logger.info(f"Phone Audio Relay live at http://{self.phone_audio_host}:{self.phone_audio_port}/phone-audio")
+                server.serve_forever()
+            except Exception as e:
+                logger.debug(f"Could not bind phone audio server on port {self.phone_audio_port}: {e}")
+
+        server_thread = threading.Thread(target=_run_server, daemon=True)
+        server_thread.start()
+
     def speak(self, text: str, interrupt: bool = False) -> None:
         """
-        Enqueues text to be spoken.
+        Enqueues text to be spoken and broadcasts to phone audio client.
         
         Args:
             text: Sentence to speak.
@@ -45,6 +159,17 @@ class TextToSpeechEngine:
         """
         if not text or not text.strip() or self.mute:
             return
+
+        cleaned_text = text.strip()
+
+        global _LATEST_SPEECH
+        with _SPEECH_LOCK:
+            self._utterance_counter += 1
+            _LATEST_SPEECH = {
+                "id": self._utterance_counter,
+                "text": cleaned_text,
+                "timestamp": time.time()
+            }
 
         if interrupt:
             # Clear pending items in queue
@@ -55,7 +180,7 @@ class TextToSpeechEngine:
                     break
 
         try:
-            self._speech_queue.put_nowait(text.strip())
+            self._speech_queue.put_nowait(cleaned_text)
         except queue.Full:
             logger.warning("Speech queue full, dropping announcement.")
 

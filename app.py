@@ -84,6 +84,8 @@ def run_cli_loop(
     logger.info("  '1' - Quick Look Mode")
     logger.info("  '2' - Obstacle Awareness Mode")
     logger.info("  '3' - Read OCR Mode")
+    logger.info("  '4' - Ask Mode (Visual Q&A)")
+    logger.info("  '5' - Safety Alert Mode")
     logger.info("  'r' - Reset audio debounce cooldown")
     logger.info("=" * 60)
 
@@ -155,6 +157,14 @@ def run_cli_loop(
                 elif key == ord("3"):
                     active_mode = ProductMode.READ
                     logger.info("Switched to Mode 3: Read (OCR)")
+                elif key == ord("4"):
+                    active_mode = ProductMode.ASK
+                    logger.info("Switched to Mode 4: Ask (Visual Q&A)")
+                    priority_engine.reset_cooldown()
+                elif key == ord("5"):
+                    active_mode = ProductMode.SAFETY_ALERT
+                    logger.info("Switched to Mode 5: Safety Alert")
+                    priority_engine.reset_cooldown()
                 elif key == ord("r"):
                     priority_engine.reset_cooldown()
                     logger.info("Audio cooldown reset.")
@@ -183,6 +193,7 @@ def launch_streamlit():
 def main():
     parser = argparse.ArgumentParser(description="VisionAssist Accessibility Platform")
     parser.add_argument("--streamlit", action="store_true", help="Launch Streamlit UI dashboard")
+    parser.add_argument("--benchmark", action="store_true", help="Run end-to-end latency and throughput benchmark")
     parser.add_argument("--mock", action="store_true", help="Use simulated test frames (no webcam required)")
     parser.add_argument("--no-gui", action="store_true", help="Run in headless terminal mode without OpenCV window")
     parser.add_argument(
@@ -201,7 +212,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.streamlit:
+    if args.benchmark:
+        from utils.benchmark import PipelineBenchmark
+        PipelineBenchmark().run(mock_stream=True)
+    elif args.streamlit:
         launch_streamlit()
     else:
         mode_map = {

@@ -26,7 +26,8 @@ class PriorityEngine:
         context_items: List[Dict[str, Any]],
         mode: ProductMode = ProductMode.OBSTACLE_AWARENESS,
         ocr_items: Optional[List[Dict[str, Any]]] = None,
-        force_refresh: bool = False
+        force_refresh: bool = False,
+        user_query: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Determines what item (if any) should be spoken right now.
@@ -35,6 +36,78 @@ class PriorityEngine:
             The selected context item dict, or None if suppressed / cooled down.
         """
         now = time.time()
+
+        # Mode 4: ASK Mode (Visual Question Answering)
+        if mode == ProductMode.ASK:
+            query = (user_query or "what is in front of me").strip().lower()
+
+            # Case A: OCR / Sign reading query
+            if any(k in query for k in ["read", "sign", "text", "room", "label", "written"]):
+                if ocr_items and len(ocr_items) > 0:
+                    return {
+                        "type": "ask_answer",
+                        "text": f"The sign reads: {ocr_items[0].get('text', '')}.",
+                        "priority": "HIGH"
+                    }
+                return {
+                    "type": "ask_answer",
+                    "text": "I do not see any readable text in this direction.",
+                    "priority": "MEDIUM"
+                }
+
+            # Case B: Specific object location query (e.g. "Where is the door?", "Is there a chair?")
+            for item in context_items:
+                obj = item["object"].lower()
+                if obj in query or (obj == "chair" and "seat" in query) or (obj == "door" and "doorway" in query):
+                    pos_desc = item.get("position_desc", "ahead")
+                    dist = item.get("distance", 2.0)
+                    return {
+                        "type": "ask_answer",
+                        "text": f"The {obj} is {pos_desc}, approximately {dist} metres away.",
+                        "priority": "HIGH"
+                    }
+
+            # Case C: General "What is in front of me?" query
+            if not context_items:
+                return {
+                    "type": "ask_answer",
+                    "text": "The path ahead appears clear. No major obstacles detected.",
+                    "priority": "LOW"
+                }
+            primary = context_items[0]
+            p_obj = primary["object"]
+            p_pos = primary["position_desc"]
+            if len(context_items) > 1:
+                secondary = context_items[1]
+                s_obj = secondary["object"]
+                s_pos = secondary["position_desc"]
+                return {
+                    "type": "ask_answer",
+                    "text": f"There is a {p_obj} {p_pos}, and a {s_obj} {s_pos}.",
+                    "priority": "HIGH"
+                }
+            return {
+                "type": "ask_answer",
+                "text": f"There is a {p_obj} {p_pos}.",
+                "priority": "HIGH"
+            }
+
+        # Mode 5: SAFETY ALERT Mode (High-urgency immediate collision warning)
+        if mode == ProductMode.SAFETY_ALERT:
+            if not context_items:
+                return None
+            candidate = context_items[0]
+            dist = candidate["distance"]
+            pos = candidate["position"]
+            # Trigger alert if obstacle within 1.8m or high risk in center
+            if dist <= 1.8 or candidate["priority"] == "HIGH" or pos == "Centre":
+                return {
+                    "type": "safety_alert",
+                    "candidate": candidate,
+                    "is_critical": True,
+                    "priority": "HIGH"
+                }
+            return None
 
         # Mode 3: READ Mode prioritizes OCR text directly
         if mode == ProductMode.READ:
@@ -63,7 +136,7 @@ class PriorityEngine:
                 "priority": "HIGH"
             }
 
-        # Modes 2 & 5: OBSTACLE AWARENESS & SAFETY ALERT
+        # Mode 2: OBSTACLE AWARENESS
         if not context_items:
             return None
 

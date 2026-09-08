@@ -28,12 +28,26 @@ class ResponseGenerator:
 
         item_type = prioritized_item.get("type")
 
-        # 1. OCR Text Reading
+        # 1. Ask Mode Direct Answers
+        if item_type == "ask_answer":
+            return {"text": prioritized_item.get("text", "")}
+
+        # 2. Safety Alert Emergency Warnings
+        if item_type == "safety_alert":
+            cand = prioritized_item.get("candidate", {})
+            obj = cand.get("object", "obstacle")
+            pos_desc = cand.get("position_desc", "ahead")
+            dist = cand.get("distance", 1.0)
+            if dist <= 1.0:
+                return {"text": f"Warning. {obj.capitalize()} {pos_desc}, less than one metre."}
+            return {"text": f"Warning. {obj.capitalize()} {pos_desc}."}
+
+        # 3. OCR Text Reading
         if item_type == "ocr":
             raw_text = prioritized_item.get("text", "")
             return {"text": f"{raw_text}."}
 
-        # 2. Quick Look Multi-Object Scene Overview
+        # 4. Quick Look Multi-Object Scene Overview
         if item_type == "quick_look":
             primary = prioritized_item.get("primary")
             secondary = prioritized_item.get("secondary")
@@ -50,7 +64,7 @@ class ResponseGenerator:
             else:
                 return {"text": f"There is a {p_obj} {p_pos}."}
 
-        # 3. Obstacle / Safety Guidance
+        # 5. Obstacle / Navigational Guidance
         if item_type == "obstacle":
             cand = prioritized_item.get("candidate", {})
             obj = cand.get("object", "obstacle")
@@ -80,6 +94,6 @@ class ResponseGenerator:
             else:
                 return {"text": f"{obj.capitalize()} {pos_desc}, {dist_str}."}
 
-        # 4. Custom/Fallback text
+        # 6. Custom/Fallback text
         custom_text = prioritized_item.get("text", "")
         return {"text": custom_text}
