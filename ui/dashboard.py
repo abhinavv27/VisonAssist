@@ -20,8 +20,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import time
 import cv2
-import numpy as np
-import streamlit as st
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 from config import ProductMode, PHONE_STREAM_URL
 from input.webcam import OpenCVWebcam
@@ -168,6 +170,11 @@ def init_session_state():
 
 
 def render_dashboard():
+    if st is None:
+        raise ImportError(
+            "Streamlit is not installed in the current environment. "
+            "Please run 'pip install streamlit' to launch the visual observer dashboard."
+        )
     st.set_page_config(
         page_title="VisionAssist · Observer Console",
         page_icon="👁️",
