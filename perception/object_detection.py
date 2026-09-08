@@ -39,6 +39,12 @@ class ObjectDetector:
             logger.warning(f"Could not load ultralytics YOLO ({e}). Operating in heuristic/mock detection mode.")
             self._is_mock = True
 
+    def warmup(self) -> None:
+        """Prime inference weights and memory with a blank frame to prevent cold-start latency."""
+        dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+        self.detect(dummy)
+        logger.info("ObjectDetector warmed up and ready.")
+
     def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         """
         Run detection on image frame.
