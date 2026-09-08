@@ -446,11 +446,13 @@ def render_dashboard():
 
         # Mode 4 (Ask) Grounded Visual Q&A
         if selected_mode == ProductMode.ASK and (submit_query or trigger_action):
+            active_lang = st.session_state.get("language", "en")
             answer = st.session_state.ask_engine.ask(
                 query=user_query,
                 frame=frame,
                 context_items=context_items,
-                ocr_items=ocr_items
+                ocr_items=ocr_items,
+                language=active_lang
             )
             if answer:
                 st.session_state.last_speech = answer

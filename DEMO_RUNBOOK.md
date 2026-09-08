@@ -93,17 +93,32 @@ This runbook gives the exact timing, speech cues, physical actions, and software
 
 ---
 
-## 🛠️ Pre-Flight Verification Checklist (Dipayan's 10-Minute Pre-Demo Check)
+## 🛠️ Pre-Flight Verification Checklist (Dipayan's 5-Minute Pre-Demo Check)
 
-- [ ] **Network Check**: Adrit's laptop and the smartphone are connected to the same Wi-Fi / Hotspot.
+- [ ] **1-Command Automated Pre-Flight**: Run `py app.py --preflight` (checks all 8 systems: Python, AI stack, YOLO, OCR, Camera, Phone Bridge, Audio, and E2E smoke test).
+- [ ] **1-Command Latency Profiler**: Run `py app.py --profile` to verify pipeline latency is `< 40ms` and effective FPS is `> 25 FPS`.
+- [ ] **1-Command Automated Rehearsal**: Run `py app.py --demo` to verify all 6 judging stages execute with speech under 3 minutes.
+- [ ] **Network Check**: Edge laptop and smartphone connected to the same Wi-Fi / Hotspot.
 - [ ] **Stream Check**: Open `http://<PHONE_IP>:8080/video` in browser to verify camera frames are streaming.
-- [ ] **Audio Relay Check**: Open `http://<ADRIT_IP>:8088/phone-audio` on the phone's browser, tap *"Enable Audio"*, and verify speech plays through phone speaker.
-- [ ] **Automated Rehearsal Check**: Run `py scripts/rehearse_demo.py` to verify the full 6-stage demo runs smoothly under 3 minutes.
-- [ ] **Backup Demo Video Ready**: Verify `demo/backup_demo.mp4` exists (generated via `py scripts/record_backup_demo.py`).
-- [ ] **Benchmark Check**: Run `py app.py --benchmark` to ensure loop latency is `< 40ms`.
-- [ ] **Dashboard Check**: Launch `py app.py --streamlit` on the presentation screen.
+- [ ] **Audio Relay Check**: Open `http://<LAPTOP_IP>:8088/phone-audio` on phone browser, tap *"Enable Phone Audio"*, and verify audio plays into earphones.
+- [ ] **Backup Demo Video**: Verify `demo/backup_demo.mp4` is present (or regenerate via `py scripts/record_backup_demo.py`).
+- [ ] **Dashboard Display**: Launch `py app.py --streamlit` on presentation screen.
 - [ ] **Physical Props Ready**:
   - Chair obstacle
   - Water bottle distractor
   - Printed `demo_props/room_sign.html`
+
+---
+
+## ⚡ Quick Reference Commands
+
+| Command | Purpose |
+| :--- | :--- |
+| `py app.py --preflight` | Automated 8-point hardware & software readiness check |
+| `py app.py --profile` | Sub-40ms latency and FPS microsecond profiler |
+| `py app.py --demo` | 6-stage 3-minute automated judge rehearsal in terminal |
+| `py app.py --streamlit` | Dark modern Streamlit presentation dashboard |
+| `py app.py --mock --lang hi` | Headless/mock camera loop with natural Hindi voice guidance |
+| `py scripts/record_backup_demo.py` | Generates offline backup video (`demo/backup_demo.mp4`) |
+
 

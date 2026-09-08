@@ -130,3 +130,28 @@ class TestPhase4UIThemeSpecification:
         assert "OCR:" in dashboard_code
         assert "TTS:" in dashboard_code
         assert "Multilingual Speech Guidance" in dashboard_code
+
+
+class TestPhase4PerformanceAndDiagnostics:
+    """Validates latency profiling, preflight diagnostics, and earcon audio alerts."""
+
+    def test_latency_profiler_execution(self):
+        from scripts.profile_latency import run_latency_profile
+        profile = run_latency_profile(iterations=5, warmup=2)
+        assert "Total_End_to_End" in profile["results"]
+        mean_ms = profile["results"]["Total_End_to_End"]["mean"]
+        assert mean_ms > 0.0
+        assert mean_ms < 100.0
+        assert profile["effective_fps"] > 0
+
+    def test_preflight_diagnostics_execution(self):
+        from scripts.preflight_check import run_preflight_diagnostics
+        ok = run_preflight_diagnostics()
+        assert ok is True
+
+    def test_instant_earcon_nonblocking(self):
+        from audio.tts import TextToSpeechEngine
+        tts = TextToSpeechEngine(mute=True)
+        # Verify earcon fires smoothly without blocking or throwing
+        tts._trigger_instant_earcon(freq=1000, duration_ms=50)
+        tts.stop()

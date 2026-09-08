@@ -281,10 +281,35 @@ def main():
         action="store_true",
         help="Enable hands-free 'Vision, look' wake phrase detection"
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the automated 6-stage 3-minute judge presentation rehearsal"
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Run high-resolution pipeline latency profiler (< 40ms SLA check)"
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run pre-flight system diagnostics before demo presentation"
+    )
 
     args = parser.parse_args()
 
-    if args.benchmark:
+    if args.demo:
+        from scripts.rehearse_demo import DemoRehearsalRunner
+        runner = DemoRehearsalRunner(pace_factor=0.5, speak_audio=True)
+        runner.run()
+    elif args.profile:
+        from scripts.profile_latency import run_latency_profile
+        run_latency_profile(iterations=25, warmup=5)
+    elif args.preflight:
+        from scripts.preflight_check import run_preflight_diagnostics
+        run_preflight_diagnostics()
+    elif args.benchmark:
         from utils.benchmark import PipelineBenchmark
         PipelineBenchmark().run(mock_stream=True)
     elif args.streamlit:

@@ -269,6 +269,15 @@ class TextToSpeechEngine:
                     self._speech_queue.get_nowait()
                 except queue.Empty:
                     break
+
+            # Play instant non-blocking earcon chime (<10ms auditory reflex cue)
+            is_headless = bool(
+                os.environ.get("PYTEST_CURRENT_TEST")
+                or os.environ.get("CI")
+                or os.environ.get("GITHUB_ACTIONS")
+            )
+            if not self.mute and not is_headless:
+                self._trigger_instant_earcon()
         else:
             self._current_utterance = cleaned_text
 
@@ -276,6 +285,21 @@ class TextToSpeechEngine:
             self._speech_queue.put_nowait(cleaned_text)
         except queue.Full:
             logger.warning("Speech queue full, dropping announcement.")
+
+    def _trigger_instant_earcon(self, freq: int = 1200, duration_ms: int = 140) -> None:
+        """Dispatches an instant non-blocking acoustic tone for emergency collision alerts."""
+        def _play():
+            try:
+                if sys.platform == "win32":
+                    import winsound
+                    winsound.Beep(freq, duration_ms)
+                else:
+                    sys.stdout.write("\a")
+                    sys.stdout.flush()
+            except Exception:
+                pass
+
+        threading.Thread(target=_play, daemon=True).start()
 
     def _worker_loop(self) -> None:
         """Background thread handling TTS synthesis."""
