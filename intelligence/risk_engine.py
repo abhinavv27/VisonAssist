@@ -61,8 +61,8 @@ class RiskEngine:
         else:
             proximity_score = 2.0
 
-        # Small non-hazard items (bottle, cup, phone) do not pose collision risk
-        if raw_danger <= 20:
+        # Small non-hazard items (bottle, cup, phone) do not pose collision risk unless directly in tripping path
+        if raw_danger <= 20 and distance_meters > 1.2:
             proximity_score *= (raw_danger / 50.0)
 
         # 3. Centrality Score (0 - 20 points) - Center path is most dangerous
