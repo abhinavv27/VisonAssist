@@ -59,40 +59,45 @@ class ObjectDetector:
                 "bbox": [x1, y1, x2, y2]
             }]
         """
-        if frame is None:
+        if frame is None or not isinstance(frame, np.ndarray) or frame.size == 0 or len(frame.shape) < 2:
+            logger.debug("Invalid or empty frame passed to ObjectDetector.")
             return []
 
-        h, w = frame.shape[:2]
+        try:
+            h, w = frame.shape[:2]
 
-        if not self._is_mock and self.model is not None:
-            try:
-                results = self.model(frame, verbose=False, conf=self.conf_thresh)
-                detections: List[Dict[str, Any]] = []
+            if not self._is_mock and self.model is not None:
+                try:
+                    results = self.model(frame, verbose=False, conf=self.conf_thresh)
+                    detections: List[Dict[str, Any]] = []
 
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        cls_id = int(box.cls[0].item())
-                        cls_name = r.names.get(cls_id, f"obj_{cls_id}")
-                        conf = float(box.conf[0].item())
-                        x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+                    for r in results:
+                        boxes = r.boxes
+                        for box in boxes:
+                            cls_id = int(box.cls[0].item())
+                            cls_name = r.names.get(cls_id, f"obj_{cls_id}")
+                            conf = float(box.conf[0].item())
+                            x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
 
-                        x_center = (x1 + x2) / 2.0
-                        y_center = (y1 + y2) / 2.0
+                            x_center = (x1 + x2) / 2.0
+                            y_center = (y1 + y2) / 2.0
 
-                        detections.append({
-                            "object": cls_name,
-                            "confidence": round(conf, 2),
-                            "x_center": round(x_center, 1),
-                            "y_center": round(y_center, 1),
-                            "bbox": [x1, y1, x2, y2],
-                        })
-                return detections
-            except Exception as e:
-                logger.error(f"YOLO inference error: {e}")
+                            detections.append({
+                                "object": cls_name,
+                                "confidence": round(conf, 2),
+                                "x_center": round(x_center, 1),
+                                "y_center": round(y_center, 1),
+                                "bbox": [x1, y1, x2, y2],
+                            })
+                    return detections
+                except Exception as e:
+                    logger.error(f"YOLO inference error: {e}")
 
-        # Fallback heuristic / mock detector for developer scaffolding & tests
-        return self._heuristic_detect(frame)
+            # Fallback heuristic / mock detector for developer scaffolding & tests
+            return self._heuristic_detect(frame)
+        except Exception as e:
+            logger.error(f"Sec.33 Error catch in ObjectDetector: {e}")
+            return []
 
     def _heuristic_detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         """

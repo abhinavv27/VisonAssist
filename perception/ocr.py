@@ -7,6 +7,7 @@ Supports EasyOCR with fallback to mock / pattern extraction.
 
 import logging
 from typing import Any, Dict, List
+import cv2
 import numpy as np
 
 logger = logging.getLogger("VisionAssist.OCR")
@@ -35,39 +36,85 @@ class OCRReader:
             logger.warning(f"EasyOCR not available ({e}). Using mock OCR reader.")
             self._is_mock = True
 
+    def warmup(self) -> None:
+        """Warm up the OCR model with a blank frame to prevent cold-start delay."""
+        dummy = np.full((120, 320, 3), 200, dtype=np.uint8)
+        self.read_text(dummy)
+        logger.info("OCRReader warmed up and ready.")
+
     def read_text(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         """
-        Extract visible text segments from frame.
+        Extract visible text segments from frame with glare and low-light robustness.
         
         Returns:
-            List of { "text": str, "confidence": float, "bbox": [x1, y1, x2, y2] }
+            List of { "text": str, "confidence": float, "bbox": [x1, y1, x2, y2], "is_unclear": bool }
         """
-        if frame is None:
+        if frame is None or not isinstance(frame, np.ndarray) or frame.size == 0:
+            logger.debug("Received empty or invalid frame for OCR.")
             return []
 
-        if not self._is_mock and self.reader is not None:
-            try:
+        try:
+            # Analyze lighting and contrast for glare or heavy underexposure
+            h, w = frame.shape[:2]
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+            mean_brightness = float(np.mean(gray))
+            contrast_std = float(np.std(gray))
+
+            # Low-light (< 40), localized glare hotspot on dark background, or washed-out overexposure
+            saturated_ratio = float(np.mean(gray > 220))
+            is_low_light = mean_brightness < 40.0
+            is_glare_hotspot = (mean_brightness < 70.0 and saturated_ratio > 0.03)
+            is_washed_out = (mean_brightness > 230.0 and contrast_std < 20.0)
+            is_lighting_degraded = is_low_light or is_glare_hotspot or is_washed_out
+
+            if not self._is_mock and self.reader is not None:
                 results = self.reader.readtext(frame)
                 extracted = []
                 for bbox, text, conf in results:
-                    if conf > 0.30 and len(text.strip()) > 1:
-                        # Convert 4-point polygon to [x1, y1, x2, y2]
+                    clean_text = text.strip()
+                    if conf > 0.35 and len(clean_text) > 1:
                         xs = [p[0] for p in bbox]
                         ys = [p[1] for p in bbox]
                         extracted.append({
-                            "text": text.strip(),
+                            "text": clean_text,
                             "confidence": round(float(conf), 2),
                             "bbox": [int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))],
+                            "is_unclear": False
                         })
-                return extracted
-            except Exception as e:
-                logger.error(f"OCR execution error: {e}")
 
-        # Fallback mock text for demo testing
-        return [
-            {
-                "text": "Computer Science Lab, Room 204",
+                if not extracted and is_lighting_degraded:
+                    logger.info("OCR failed due to extreme glare or low-light; returning graceful fallback.")
+                    return [{
+                        "text": "Text unclear, please adjust lighting or move closer.",
+                        "confidence": 0.20,
+                        "bbox": [0, 0, w, h],
+                        "is_unclear": True
+                    }]
+                return extracted
+
+            # Mock / Test execution mode
+            if is_lighting_degraded:
+                return [{
+                    "text": "Text unclear, please adjust lighting or move closer.",
+                    "confidence": 0.20,
+                    "bbox": [0, 0, w, h],
+                    "is_unclear": True
+                }]
+
+            # Default clean mock response
+            return [{
+                "text": "Room 204 - Computer Science Lab",
                 "confidence": 0.95,
-                "bbox": [460, 140, 580, 180]
-            }
-        ]
+                "bbox": [int(w * 0.2), int(h * 0.3), int(w * 0.8), int(h * 0.6)],
+                "is_unclear": False
+            }]
+
+        except Exception as e:
+            logger.error(f"Defensive perception catch in OCRReader: {e}")
+            return [{
+                "text": "Text unclear.",
+                "confidence": 0.0,
+                "bbox": [0, 0, 100, 100],
+                "is_unclear": True
+            }]
+

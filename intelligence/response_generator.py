@@ -44,6 +44,8 @@ class ResponseGenerator:
 
         # 3. OCR Text Reading
         if item_type == "ocr":
+            if prioritized_item.get("is_unclear"):
+                return {"text": "Text appears unclear, please adjust lighting or move closer."}
             raw_text = prioritized_item.get("text", "")
             return {"text": f"{raw_text}."}
 

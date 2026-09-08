@@ -46,12 +46,14 @@ OBJECT_DANGER_WEIGHTS = {
     "motorcycle": 85,
     "bicycle": 70,
     "traffic light": 75,
+    "hazard": 75,
+    "obstacle": 60,
     "fire hydrant": 50,
     "stop sign": 60,
     
     # Moderate Mobility Obstacles (30 - 65)
     "person": 45,
-    "chair": 40,
+    "chair": 36,
     "couch": 45,
     "bench": 45,
     "table": 40,
