@@ -34,6 +34,7 @@ from perception.ocr import OCRReader
 from intelligence.context_engine import ContextEngine
 from intelligence.priority_engine import PriorityEngine
 from intelligence.response_generator import ResponseGenerator
+from intelligence.ask_engine import AskEngine
 from audio.tts import TextToSpeechEngine
 from utils.drawing import draw_visual_annotations
 from tests.test_scenes import (
@@ -160,6 +161,9 @@ def init_session_state():
     if "tts" not in st.session_state:
         st.session_state.tts = TextToSpeechEngine()
 
+    if "ask_engine" not in st.session_state:
+        st.session_state.ask_engine = AskEngine()
+
     if "last_speech" not in st.session_state:
         st.session_state.last_speech = "VisionAssist initialized. Ready."
 
@@ -243,16 +247,24 @@ def render_dashboard():
 
         # 3. Ask Mode Input
         user_query = ""
+        submit_query = False
         if selected_mode == ProductMode.ASK:
-            st.markdown("**Visual Q&A Query**")
+            st.markdown("**Visual Q&A Query (Mode 4)**")
             col_q1, col_q2 = st.columns(2)
             with col_q1:
-                if st.button("Where is door?"):
+                if st.button("🚪 Where is door?", use_container_width=True):
                     user_query = "Where is the door?"
+                    submit_query = True
             with col_q2:
-                if st.button("Read sign"):
+                if st.button("🔤 Read sign", use_container_width=True):
                     user_query = "Read the sign in front of me"
-            user_query = st.text_input("Ask a question about the scene:", value=user_query or "What is in front of me?")
+                    submit_query = True
+            entered_q = st.text_input("Ask a question about the scene:", value=user_query or "What is in front of me?")
+            if st.button("💬 Ask VisionAssist", use_container_width=True):
+                user_query = entered_q
+                submit_query = True
+            elif not user_query:
+                user_query = entered_q
 
         st.divider()
         audio_muted = st.checkbox("Mute Audio Output", value=False)
@@ -327,24 +339,38 @@ def render_dashboard():
         if selected_mode == ProductMode.READ or (selected_mode == ProductMode.ASK and "sign" in user_query.lower()):
             ocr_items = st.session_state.ocr.read_text(frame)
 
-        # Priority decision
-        force_now = trigger_action or (selected_mode == ProductMode.QUICK_LOOK)
-        prioritized = st.session_state.priority_engine.select_top_item(
-            context_items=context_items,
-            mode=selected_mode,
-            ocr_items=ocr_items,
-            force_refresh=force_now,
-            user_query=user_query if selected_mode == ProductMode.ASK else None
-        )
+        # In Mode 4 (Ask), use AskEngine for grounded Q&A when query is submitted or action triggered
+        if selected_mode == ProductMode.ASK and (submit_query or trigger_action):
+            answer = st.session_state.ask_engine.ask(
+                query=user_query,
+                frame=frame,
+                context_items=context_items,
+                ocr_items=ocr_items
+            )
+            if answer:
+                st.session_state.last_speech = answer
+                st.session_state.speech_history.append(f"{time.strftime('%H:%M:%S')} [Mode 4 Ask] {answer}")
+                st.session_state.tts.speak(answer, interrupt=True)
+        else:
+            # Priority decision for Modes 1, 2, 3, 5
+            force_now = trigger_action or (selected_mode == ProductMode.QUICK_LOOK)
+            prioritized = st.session_state.priority_engine.select_top_item(
+                context_items=context_items,
+                mode=selected_mode,
+                ocr_items=ocr_items,
+                force_refresh=force_now,
+                user_query=user_query if selected_mode == ProductMode.ASK else None
+            )
 
-        # Generate response text & speak
-        if prioritized:
-            response = st.session_state.response_generator.generate(prioritized)
-            speech_text = response.get("text", "")
-            if speech_text and speech_text != st.session_state.last_speech:
-                st.session_state.last_speech = speech_text
-                st.session_state.speech_history.append(f"{time.strftime('%H:%M:%S')} {speech_text}")
-                st.session_state.tts.speak(speech_text, interrupt=(prioritized.get("is_critical", False)))
+            # Generate response text & speak
+            if prioritized:
+                response = st.session_state.response_generator.generate(prioritized)
+                speech_text = response.get("text", "")
+                if speech_text and speech_text != st.session_state.last_speech:
+                    st.session_state.last_speech = speech_text
+                    st.session_state.speech_history.append(f"{time.strftime('%H:%M:%S')} {speech_text}")
+                    is_critical = prioritized.get("is_critical", False) or (selected_mode == ProductMode.SAFETY_ALERT)
+                    st.session_state.tts.speak(speech_text, interrupt=is_critical, priority=is_critical)
 
         # Visual Annotations
         annotated_frame = draw_visual_annotations(

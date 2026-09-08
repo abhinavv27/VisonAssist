@@ -1,0 +1,11 @@
+scenario_id,image,expected_priority,actual_priority,risk_score,min_risk,max_risk,expected_substring,spoken_text,status
+scenario_01,stairs_ahead.png,HIGH,HIGH,76.0,65.0,100.0,stairs,"Stairs directly ahead, 3.8 metres away.",PASS
+scenario_02,doorway_right.png,MEDIUM,MEDIUM,44.5,35.0,100.0,door,Door on your far right.,PASS
+scenario_03,chair_center.png,MEDIUM,MEDIUM,60.6,45.0,100.0,chair,"Chair directly ahead, about 2.1 metres.",PASS
+scenario_04,sign_clean.png,HIGH,HIGH,50.0,0.0,100.0,room 204,Room 204 - Computer Science Lab.,PASS
+scenario_05,sign_glare_lowlight.png,LOW,LOW,10.0,0.0,100.0,unclear,"Text appears unclear, please adjust lighting or move closer.",PASS
+scenario_06,close_obstacle.png,HIGH,HIGH,79.2,75.0,100.0,warning,Warning. Obstacle directly ahead.,PASS
+scenario_07,bottle_distractor.png,LOW,LOW,18.5,0.0,35.0,suppressed,"Bottle on your far right, approximately 1.4 metres.",PASS
+scenario_08,person_passing.png,MEDIUM,MEDIUM,49.0,35.0,100.0,person,"Person on your left, about 2.8 metres.",PASS
+scenario_09,car_approaching.png,HIGH,HIGH,76.5,65.0,100.0,car,"Caution, car directly ahead, 4.2 metres.",PASS
+scenario_10,clear_hallway.png,LOW,LOW,0.0,0.0,20.0,clear,Path clear. Suppressed low hazard.,PASS

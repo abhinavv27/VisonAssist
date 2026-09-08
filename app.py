@@ -19,7 +19,7 @@ from pathlib import Path
 
 import cv2
 
-from config import ProductMode, DEFAULT_MODE, CAMERA_WIDTH, CAMERA_HEIGHT, PHONE_STREAM_URL
+from config import ProductMode, DEFAULT_MODE, PHONE_STREAM_URL
 from input.webcam import OpenCVWebcam
 from input.phone_stream import PhoneStreamCamera
 from perception.object_detection import ObjectDetector
@@ -27,6 +27,7 @@ from perception.ocr import OCRReader
 from intelligence.context_engine import ContextEngine
 from intelligence.priority_engine import PriorityEngine
 from intelligence.response_generator import ResponseGenerator
+from intelligence.ask_engine import AskEngine
 from audio.tts import TextToSpeechEngine
 from utils.logger import setup_logger
 from utils.drawing import draw_visual_annotations
@@ -70,12 +71,20 @@ def run_cli_loop(
     context_engine = ContextEngine()
     priority_engine = PriorityEngine()
     response_gen = ResponseGenerator()
+    ask_engine = AskEngine()
 
     # 4. Audio layer
     tts = TextToSpeechEngine()
 
     current_audio_text = "VisionAssist online."
     tts.speak(current_audio_text)
+
+    ask_queries = [
+        "What is in front of me?",
+        "Where is the door?",
+        "Read the sign in front of me"
+    ]
+    ask_query_idx = 0
 
     logger.info("=" * 60)
     logger.info(f"VisionAssist running in mode: {mode.name}")
@@ -84,7 +93,7 @@ def run_cli_loop(
     logger.info("  '1' - Quick Look Mode")
     logger.info("  '2' - Obstacle Awareness Mode")
     logger.info("  '3' - Read OCR Mode")
-    logger.info("  '4' - Ask Mode (Visual Q&A)")
+    logger.info("  '4' - Ask Mode (Visual Q&A - tap to cycle questions)")
     logger.info("  '5' - Safety Alert Mode")
     logger.info("  'r' - Reset audio debounce cooldown")
     logger.info("=" * 60)
@@ -107,7 +116,7 @@ def run_cli_loop(
             # Perception
             detections = detector.detect(frame)
             ocr_items = []
-            if active_mode == ProductMode.READ:
+            if active_mode in (ProductMode.READ, ProductMode.ASK):
                 ocr_items = ocr.read_text(frame)
 
             # Context & Risk reasoning
@@ -117,21 +126,36 @@ def run_cli_loop(
                 mode=active_mode
             )
 
-            # Priority selection
-            prioritized = priority_engine.select_top_item(
-                context_items=context_items,
-                mode=active_mode,
-                ocr_items=ocr_items
-            )
+            # Mode 4: Visual Q&A via AskEngine
+            if active_mode == ProductMode.ASK:
+                active_q = ask_queries[ask_query_idx % len(ask_queries)]
+                answer = ask_engine.ask(
+                    query=active_q,
+                    frame=frame,
+                    context_items=context_items,
+                    ocr_items=ocr_items
+                )
+                if answer and answer != current_audio_text:
+                    current_audio_text = answer
+                    logger.info(f"==> ASK Q&A ('{active_q}'): {answer}")
+                    tts.speak(answer, interrupt=True)
+            else:
+                # Priority selection for Modes 1, 2, 3, 5
+                prioritized = priority_engine.select_top_item(
+                    context_items=context_items,
+                    mode=active_mode,
+                    ocr_items=ocr_items
+                )
 
-            # Generate natural sentence & speak
-            if prioritized:
-                res = response_gen.generate(prioritized)
-                text_to_speak = res.get("text", "")
-                if text_to_speak:
-                    current_audio_text = text_to_speak
-                    logger.info(f"==> PRIORITY SPEECH: {text_to_speak}")
-                    tts.speak(text_to_speak, interrupt=prioritized.get("is_critical", False))
+                # Generate natural sentence & speak
+                if prioritized:
+                    res = response_gen.generate(prioritized)
+                    text_to_speak = res.get("text", "")
+                    if text_to_speak:
+                        current_audio_text = text_to_speak
+                        logger.info(f"==> PRIORITY SPEECH: {text_to_speak}")
+                        is_critical = prioritized.get("is_critical", False) or (active_mode == ProductMode.SAFETY_ALERT)
+                        tts.speak(text_to_speak, interrupt=is_critical, priority=is_critical)
 
             # Display GUI window
             if not no_gui:
@@ -158,9 +182,17 @@ def run_cli_loop(
                     active_mode = ProductMode.READ
                     logger.info("Switched to Mode 3: Read (OCR)")
                 elif key == ord("4"):
+                    if active_mode == ProductMode.ASK:
+                        ask_query_idx += 1
                     active_mode = ProductMode.ASK
-                    logger.info("Switched to Mode 4: Ask (Visual Q&A)")
+                    active_q = ask_queries[ask_query_idx % len(ask_queries)]
+                    logger.info(f"Switched to Mode 4: Ask (Visual Q&A) - Query: '{active_q}'")
                     priority_engine.reset_cooldown()
+                    # Immediate answer on keypress
+                    ans = ask_engine.ask(active_q, frame, context_items, ocr_items)
+                    if ans:
+                        current_audio_text = ans
+                        tts.speak(ans, interrupt=True)
                 elif key == ord("5"):
                     active_mode = ProductMode.SAFETY_ALERT
                     logger.info("Switched to Mode 5: Safety Alert")

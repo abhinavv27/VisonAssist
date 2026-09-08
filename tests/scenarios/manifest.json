@@ -1,0 +1,92 @@
+[
+  {
+    "id": "scenario_01",
+    "name": "stairs_ahead.png",
+    "description": "Corridor staircase descending directly in travel path at 2.0m",
+    "expected_object": "stairs",
+    "expected_priority": "HIGH",
+    "expected_speech_substring": "stairs",
+    "min_risk_score": 65.0
+  },
+  {
+    "id": "scenario_02",
+    "name": "doorway_right.png",
+    "description": "Hallway with open office door on the right at 3.0m",
+    "expected_object": "door",
+    "expected_priority": "MEDIUM",
+    "expected_speech_substring": "door",
+    "min_risk_score": 35.0
+  },
+  {
+    "id": "scenario_03",
+    "name": "chair_center.png",
+    "description": "Classroom chair blocking direct forward path at 1.5m",
+    "expected_object": "chair",
+    "expected_priority": "MEDIUM",
+    "expected_speech_substring": "chair",
+    "min_risk_score": 45.0
+  },
+  {
+    "id": "scenario_04",
+    "name": "sign_clean.png",
+    "description": "Clear high-contrast room sign: ROOM 204 - CS LAB",
+    "expected_object": "ocr",
+    "expected_priority": "HIGH",
+    "expected_speech_substring": "Room 204",
+    "ocr_text": "Room 204 - Computer Science Lab"
+  },
+  {
+    "id": "scenario_05",
+    "name": "sign_glare_lowlight.png",
+    "description": "Degraded low-contrast sign with simulated lighting glare",
+    "expected_object": "ocr_unclear",
+    "expected_priority": "LOW",
+    "expected_speech_substring": "unclear",
+    "ocr_text": ""
+  },
+  {
+    "id": "scenario_06",
+    "name": "close_obstacle.png",
+    "description": "Sudden near-field obstacle directly ahead at 0.8m",
+    "expected_object": "obstacle",
+    "expected_priority": "HIGH",
+    "expected_speech_substring": "Warning",
+    "min_risk_score": 75.0
+  },
+  {
+    "id": "scenario_07",
+    "name": "bottle_distractor.png",
+    "description": "Small handheld water bottle on side table (Non-hazard)",
+    "expected_object": "bottle",
+    "expected_priority": "LOW",
+    "expected_speech_substring": "suppressed",
+    "max_risk_score": 35.0
+  },
+  {
+    "id": "scenario_08",
+    "name": "person_passing.png",
+    "description": "Pedestrian passing on the left at 2.5m",
+    "expected_object": "person",
+    "expected_priority": "MEDIUM",
+    "expected_speech_substring": "person",
+    "min_risk_score": 35.0
+  },
+  {
+    "id": "scenario_09",
+    "name": "car_approaching.png",
+    "description": "Approaching vehicle directly ahead at 3.5m",
+    "expected_object": "car",
+    "expected_priority": "HIGH",
+    "expected_speech_substring": "car",
+    "min_risk_score": 65.0
+  },
+  {
+    "id": "scenario_10",
+    "name": "clear_hallway.png",
+    "description": "Empty hallway corridor with no immediate obstacles",
+    "expected_object": "none",
+    "expected_priority": "LOW",
+    "expected_speech_substring": "clear",
+    "max_risk_score": 20.0
+  }
+]

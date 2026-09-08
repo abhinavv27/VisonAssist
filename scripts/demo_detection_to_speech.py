@@ -270,7 +270,7 @@ def run_demo(use_webcam: bool = False):
         speech_text = response_gen.generate(prioritized_s3)["text"]
         print(f"\n ==> Priority Engine Selected: {prioritized_s3['candidate']['object']} (Critical: {prioritized_s3.get('is_critical')})")
         print(f" ==> Spoken Output: \"{speech_text}\"")
-        tts.speak(speech_text, interrupt=prioritized_s3.get("is_critical", False))
+        tts.speak(speech_text, interrupt=prioritized_s3.get("is_critical", False), priority=True)
 
     time.sleep(2.0)
 
@@ -316,13 +316,31 @@ def run_demo(use_webcam: bool = False):
             print(f" ==> Spoken Output: \"{speech_text}\"")
             tts.speak(speech_text)
 
-    time.sleep(2.5)
+    time.sleep(2.0)
+
+    # =========================================================================
+    # SCENARIO 5: Visual Question Answering (Mode 4: Ask)
+    # =========================================================================
+    print("\n" + "-" * 75)
+    print(" [SCENARIO 5] Mode 4: Visual Question Answering (Ask)")
+    print(" Query: 'Where is the door?'")
+    print(" Expected: Grounded location answer with position and distance.")
+    print("-" * 75)
+
+    from intelligence.ask_engine import AskEngine
+    ask_engine = AskEngine()
+    query = "Where is the door?"
+    answer = ask_engine.ask(query, frame_s1, context_items_s1)
+    print(f"\n ==> User Question: \"{query}\"")
+    print(f" ==> AskEngine Answer: \"{answer}\"")
+    tts.speak(answer, interrupt=True)
+    time.sleep(2.0)
 
     tts.stop()
     audio_server.stop()
     cv2.destroyAllWindows()
     print("\n" + "=" * 75)
-    print(" ALL 4 DEMO SCENARIOS COMPLETED SUCCESSFULLY! ")
+    print(" ALL 5 DEMO SCENARIOS COMPLETED SUCCESSFULLY! ")
     print("=" * 75)
 
 # ---------------------------------------------------------------------

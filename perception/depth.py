@@ -6,7 +6,10 @@ from 2D bounding boxes using geometric perspective and apparent object height.
 Provides plug-in support for deep MiDaS monocular depth models.
 """
 
+import logging
 from typing import Dict, List, Tuple
+
+logger = logging.getLogger("VisionAssist.Depth")
 
 # Approximate known real-world heights of objects in meters
 REAL_WORLD_HEIGHTS: Dict[str, float] = {
@@ -49,34 +52,40 @@ def estimate_distance_and_proximity(
     Returns:
         (distance_meters, proximity_category): e.g., (1.8, 'Near')
     """
-    x1, y1, x2, y2 = bbox
-    box_height = max(1, y2 - y1)
-    box_width = max(1, x2 - x1)
+    try:
+        if not bbox or len(bbox) < 4 or frame_height <= 0 or frame_width <= 0:
+            return (3.0, "Mid-range")
 
-    # 1. Height-based pinhole projection estimate
-    real_h = REAL_WORLD_HEIGHTS.get(object_name.lower(), DEFAULT_OBJECT_HEIGHT)
-    distance_from_height = (real_h * FOCAL_LENGTH_PIXELS) / float(box_height)
+        x1, y1, x2, y2 = bbox[:4]
+        box_height = max(1, y2 - y1)
 
-    # 2. Ground plane vertical position heuristic (objects closer to bottom of frame are nearer)
-    # y2 normalized to bottom: near bottom (y2 ~ frame_height) => closer
-    y2_norm = min(1.0, max(0.0, y2 / float(frame_height)))
-    # Ground plane distance estimate: objects at bottom edge are ~0.8m to 1.5m
-    ground_dist_estimate = max(0.6, 4.0 * (1.0 - y2_norm) + 0.8)
+        # 1. Height-based pinhole projection estimate
+        real_h = REAL_WORLD_HEIGHTS.get(object_name.lower(), DEFAULT_OBJECT_HEIGHT)
+        distance_from_height = (real_h * FOCAL_LENGTH_PIXELS) / float(box_height)
 
-    # Combine estimates with weighting
-    estimated_distance = 0.65 * distance_from_height + 0.35 * ground_dist_estimate
-    # Constrain to plausible indoor assistive range (0.4m to 12.0m)
-    estimated_distance = max(0.5, min(12.0, estimated_distance))
-    estimated_distance = round(estimated_distance, 1)
+        # 2. Ground plane vertical position heuristic (objects closer to bottom of frame are nearer)
+        # y2 normalized to bottom: near bottom (y2 ~ frame_height) => closer
+        y2_norm = min(1.0, max(0.0, y2 / float(frame_height)))
+        # Ground plane distance estimate: objects at bottom edge are ~0.8m to 1.5m
+        ground_dist_estimate = max(0.6, 4.0 * (1.0 - y2_norm) + 0.8)
 
-    # Categorize proximity
-    if estimated_distance < 1.2:
-        proximity = "Immediate"
-    elif estimated_distance < 2.5:
-        proximity = "Near"
-    elif estimated_distance < 5.0:
-        proximity = "Mid-range"
-    else:
-        proximity = "Far"
+        # Combine estimates with weighting
+        estimated_distance = 0.65 * distance_from_height + 0.35 * ground_dist_estimate
+        # Constrain to plausible indoor assistive range (0.4m to 12.0m)
+        estimated_distance = max(0.5, min(12.0, estimated_distance))
+        estimated_distance = round(estimated_distance, 1)
 
-    return (estimated_distance, proximity)
+        # Categorize proximity
+        if estimated_distance < 1.2:
+            proximity = "Immediate"
+        elif estimated_distance < 2.5:
+            proximity = "Near"
+        elif estimated_distance < 5.0:
+            proximity = "Mid-range"
+        else:
+            proximity = "Far"
+
+        return (estimated_distance, proximity)
+    except Exception as e:
+        logger.error(f"Sec.33 Error catch in depth estimation: {e}")
+        return (3.0, "Mid-range")

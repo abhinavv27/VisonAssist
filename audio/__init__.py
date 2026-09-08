@@ -4,5 +4,7 @@ Provides offline, non-blocking text-to-speech output.
 """
 
 from .tts import TextToSpeechEngine
+from .audio_stream_server import AudioStreamServer
 
-__all__ = ["TextToSpeechEngine"]
+__all__ = ["TextToSpeechEngine", "AudioStreamServer"]
+

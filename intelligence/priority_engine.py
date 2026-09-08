@@ -114,6 +114,7 @@ class PriorityEngine:
             if ocr_items and len(ocr_items) > 0:
                 top_text = ocr_items[0]
                 text_content = top_text.get("text", "")
+                is_unclear = top_text.get("is_unclear", False)
                 if force_refresh or text_content != self.last_spoken_object or (now - self.last_spoken_timestamp) > self.cooldown_seconds:
                     self.last_spoken_object = text_content
                     self.last_spoken_timestamp = now
@@ -121,7 +122,8 @@ class PriorityEngine:
                         "type": "ocr",
                         "text": text_content,
                         "confidence": top_text.get("confidence", 1.0),
-                        "priority": "HIGH"
+                        "is_unclear": is_unclear,
+                        "priority": "LOW" if is_unclear else "HIGH"
                     }
             return None
 

@@ -126,8 +126,11 @@ class TextToSpeechEngine:
         self.phone_audio_port = phone_audio_port
         self._speech_queue: queue.Queue = queue.Queue(maxsize=10)
         self._stop_event = threading.Event()
+        self._interrupt_event = threading.Event()
         self._current_utterance: Optional[str] = None
+        self._last_interrupted_utterance: Optional[str] = None
         self._utterance_counter = 0
+        self._sapi_voice = None
 
         # Background synthesis worker
         self._speech_thread = threading.Thread(target=self._worker_loop, daemon=True)
@@ -149,18 +152,20 @@ class TextToSpeechEngine:
         server_thread = threading.Thread(target=_run_server, daemon=True)
         server_thread.start()
 
-    def speak(self, text: str, interrupt: bool = False) -> None:
+    def speak(self, text: str, interrupt: bool = False, priority: bool = False) -> None:
         """
         Enqueues text to be spoken and broadcasts to phone audio client.
         
         Args:
             text: Sentence to speak.
-            interrupt: If True, clears backlog and speaks immediately.
+            interrupt: If True, clears backlog and interrupts current speech.
+            priority: If True, treats as Mode-5 emergency alert (cuts off mid-sentence).
         """
         if not text or not text.strip() or self.mute:
             return
 
         cleaned_text = text.strip()
+        is_urgent = interrupt or priority
 
         global _LATEST_SPEECH
         with _SPEECH_LOCK:
@@ -171,8 +176,23 @@ class TextToSpeechEngine:
                 "timestamp": time.time()
             }
 
-        if interrupt:
-            # Clear pending items in queue
+        if is_urgent:
+            # Signal background worker to cut off current utterance mid-speech
+            if self._current_utterance:
+                self._last_interrupted_utterance = self._current_utterance
+                logger.info(f"[TTS INTERRUPT]: Cut off ongoing speech \"{self._last_interrupted_utterance}\" for \"{cleaned_text}\"")
+
+            self._interrupt_event.set()
+
+            # Purge SAPI speech instantly
+            if self._sapi_voice is not None:
+                try:
+                    # 2 = SVSFPurgeBeforeSpeak
+                    self._sapi_voice.Speak("", 2)
+                except Exception as e:
+                    logger.debug(f"SAPI purge error: {e}")
+
+            # Clear all pending backlog in queue
             while not self._speech_queue.empty():
                 try:
                     self._speech_queue.get_nowait()
@@ -194,6 +214,7 @@ class TextToSpeechEngine:
             pythoncom.CoInitialize()
             sapi_voice = win32com.client.Dispatch("SAPI.SpVoice")
             sapi_voice.Volume = int(self.volume * 100)
+            self._sapi_voice = sapi_voice
             logger.info("Native Windows SAPI voice engine initialized.")
         except Exception as e:
             logger.debug(f"Windows SAPI not available: {e}. Checking pyttsx3...")
@@ -214,6 +235,7 @@ class TextToSpeechEngine:
             try:
                 text = self._speech_queue.get(timeout=0.2)
                 self._current_utterance = text
+                self._interrupt_event.clear()
                 logger.info(f"[TTS AUDIO]: \"{text}\"")
 
                 if sapi_voice is not None:
@@ -223,8 +245,12 @@ class TextToSpeechEngine:
                     pyttsx3_engine.say(text)
                     pyttsx3_engine.runAndWait()
                 else:
-                    # Simulated audio delay
-                    time.sleep(min(2.0, max(0.5, len(text.split()) * 0.25)))
+                    # Simulated audio delay checking for mid-speech interrupt
+                    duration = min(2.0, max(0.5, len(text.split()) * 0.25))
+                    elapsed = 0.0
+                    while elapsed < duration and not self._interrupt_event.is_set():
+                        time.sleep(0.05)
+                        elapsed += 0.05
 
                 self._current_utterance = None
                 self._speech_queue.task_done()
@@ -238,6 +264,11 @@ class TextToSpeechEngine:
     def current_utterance(self) -> Optional[str]:
         """Returns currently speaking or last spoken sentence."""
         return self._current_utterance
+
+    @property
+    def last_interrupted_utterance(self) -> Optional[str]:
+        """Returns the utterance cut off mid-speech by an emergency interrupt."""
+        return self._last_interrupted_utterance
 
     def stop(self) -> None:
         """Stops the background speech worker thread."""

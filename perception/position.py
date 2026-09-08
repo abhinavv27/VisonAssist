@@ -16,8 +16,13 @@ def calculate_bounding_box_center(bbox: List[int]) -> Tuple[float, float]:
     Returns:
         (x_center, y_center): Raw pixel coordinates.
     """
-    x1, y1, x2, y2 = bbox
-    return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+    try:
+        if not bbox or len(bbox) < 4:
+            return (320.0, 240.0)
+        x1, y1, x2, y2 = bbox[:4]
+        return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+    except Exception:
+        return (320.0, 240.0)
 
 
 def classify_position(x_center: float, frame_width: int) -> str:
@@ -31,15 +36,18 @@ def classify_position(x_center: float, frame_width: int) -> str:
     Returns:
         'Left' | 'Centre' | 'Right'
     """
-    if frame_width <= 0:
-        return "Centre"
+    try:
+        if frame_width <= 0:
+            return "Centre"
 
-    norm_x = x_center / float(frame_width)
-    if norm_x < HORIZONTAL_LEFT_BOUNDARY:
-        return "Left"
-    elif norm_x > HORIZONTAL_RIGHT_BOUNDARY:
-        return "Right"
-    else:
+        norm_x = float(x_center) / float(frame_width)
+        if norm_x < HORIZONTAL_LEFT_BOUNDARY:
+            return "Left"
+        elif norm_x > HORIZONTAL_RIGHT_BOUNDARY:
+            return "Right"
+        else:
+            return "Centre"
+    except Exception:
         return "Centre"
 
 
@@ -48,21 +56,24 @@ def get_position_offset_description(x_center: float, frame_width: int) -> str:
     Returns intuitive natural phrasing like:
     'ahead', 'slightly to your left', 'on your right', etc.
     """
-    if frame_width <= 0:
-        return "ahead"
+    try:
+        if frame_width <= 0:
+            return "ahead"
 
-    norm_x = x_center / float(frame_width)
-    if norm_x < 0.25:
-        return "on your far left"
-    elif norm_x < HORIZONTAL_LEFT_BOUNDARY:
-        return "on your left"
-    elif norm_x < 0.45:
-        return "slightly to your left"
-    elif norm_x <= 0.55:
-        return "directly ahead"
-    elif norm_x <= HORIZONTAL_RIGHT_BOUNDARY:
-        return "slightly to your right"
-    elif norm_x <= 0.75:
-        return "on your right"
-    else:
-        return "on your far right"
+        norm_x = float(x_center) / float(frame_width)
+        if norm_x < 0.25:
+            return "on your far left"
+        elif norm_x < HORIZONTAL_LEFT_BOUNDARY:
+            return "on your left"
+        elif norm_x < 0.45:
+            return "slightly to your left"
+        elif norm_x <= 0.55:
+            return "directly ahead"
+        elif norm_x <= HORIZONTAL_RIGHT_BOUNDARY:
+            return "slightly to your right"
+        elif norm_x <= 0.75:
+            return "on your right"
+        else:
+            return "on your far right"
+    except Exception:
+        return "ahead"
