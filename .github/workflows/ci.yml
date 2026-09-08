@@ -5,12 +5,14 @@ on:
     branches:
       - main
       - abhinav
+      - frontend
       - 'feature/**'
       - 'fix/**'
   pull_request:
     branches:
       - main
       - abhinav
+      - frontend
 
 # Cancel in-progress runs for the same PR/branch when new commits are pushed
 concurrency:
@@ -26,6 +28,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ['3.11']
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout Repository

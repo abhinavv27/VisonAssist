@@ -1,0 +1,7 @@
+# Gitleaks ignore file for VisionAssist
+# Suppresses false positives in test assets and documentation hashes
+tests/scenarios/
+tests/test_scenes/
+demo_props/
+tests/scenarios/manifest.json
+tests/scenarios/calibration_report.csv
