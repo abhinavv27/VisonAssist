@@ -162,13 +162,14 @@ class TextToSpeechEngine:
 
         cleaned_text = text.strip()
 
-        # Broadcast to phone audio relay
         global _LATEST_SPEECH
         with _SPEECH_LOCK:
             self._utterance_counter += 1
-            _LATEST_SPEECH["id"] = self._utterance_counter
-            _LATEST_SPEECH["text"] = cleaned_text
-            _LATEST_SPEECH["timestamp"] = time.time()
+            _LATEST_SPEECH = {
+                "id": self._utterance_counter,
+                "text": cleaned_text,
+                "timestamp": time.time()
+            }
 
         if interrupt:
             # Clear pending items in queue

@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import time
 import cv2
+import numpy as np
 try:
     import streamlit as st
 except ImportError:
