@@ -299,15 +299,14 @@ class TextToSpeechEngine:
             except Exception as e:
                 logger.error(f"Error during speech synthesis: {e}")
                 self._current_utterance = None
-        finally:
-            if sapi_voice is not None:
-                del sapi_voice
-                self._sapi_voice = None
-                try:
-                    import pythoncom
-                    pythoncom.CoUninitialize()
-                except Exception:
-                    pass
+        if sapi_voice is not None:
+            del sapi_voice
+            self._sapi_voice = None
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
 
     @property
     def current_utterance(self) -> Optional[str]:

@@ -20,7 +20,12 @@ from typing import Optional
 
 import cv2
 
-from config import ProductMode, DEFAULT_MODE, PHONE_STREAM_URL
+from config import (
+    DEFAULT_MODE,
+    DETECTION_INTERVAL_FRAMES,
+    PHONE_STREAM_URL,
+    ProductMode,
+)
 from input.webcam import OpenCVWebcam
 from input.phone_stream import PhoneStreamCamera
 from perception.object_detection import ObjectDetector
@@ -117,6 +122,11 @@ def run_cli_loop(
     prev_time = time.time()
     active_mode = mode
     iteration = 0
+    cached_detections = []
+    window_name = "VisionAssist - Live Monitoring Feed"
+    if not no_gui:
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, 960, 720)
 
     try:
         while True:
@@ -138,7 +148,9 @@ def run_cli_loop(
             prev_time = curr_time
 
             # Perception
-            detections = detector.detect(frame)
+            if iteration == 1 or iteration % DETECTION_INTERVAL_FRAMES == 0:
+                cached_detections = detector.detect(frame)
+            detections = cached_detections
             ocr_items = []
             if active_mode in (ProductMode.READ, ProductMode.ASK):
                 ocr_items = ocr.read_text(frame)
@@ -193,7 +205,7 @@ def run_cli_loop(
                     mode_label=active_mode.name,
                     fps=fps
                 )
-                cv2.imshow("VisionAssist - Live Monitoring Feed", annotated)
+                cv2.imshow(window_name, annotated)
                 key = cv2.waitKey(1) & 0xFF
 
                 if key == ord("q"):
