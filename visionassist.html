@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisionAssist — See the world through sound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C0F12;
+    --panel:#12161B;
+    --panel-2:#171C22;
+    --line:rgba(237,239,242,0.09);
+    --line-strong:rgba(237,239,242,0.16);
+    --text:#EDEFF2;
+    --text-dim:#8B95A1;
+    --text-faint:#5C6570;
+    --high:#E2543D;
+    --med:#E0A63D;
+    --low:#3D8A78;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  ::selection{background:var(--high);color:#fff;}
+  a{color:inherit;}
+
+  .wrap{
+    max-width:1120px;
+    margin:0 auto;
+    padding:0 32px;
+  }
+  @media (max-width:640px){ .wrap{padding:0 20px;} }
+
+  /* ---------- nav ---------- */
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(12,15,18,0.86);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    height:60px;
+  }
+  .brand{
+    font-weight:700; font-size:15px; letter-spacing:-0.01em;
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand-mark{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--high);
+    box-shadow:0 0 0 3px rgba(226,84,61,0.18);
+  }
+  .navlinks{display:flex; gap:28px; font-size:13.5px; color:var(--text-dim);}
+  .navlinks a{text-decoration:none; transition:color .15s;}
+  .navlinks a:hover{color:var(--text);}
+  @media (max-width:720px){ .navlinks{display:none;} }
+
+  /* ---------- hero ---------- */
+  header.hero{
+    padding:96px 0 72px;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0 0 20px;
+  }
+  h1.title{
+    font-size:clamp(2.6rem, 6vw, 4.6rem);
+    line-height:1.03;
+    letter-spacing:-0.02em;
+    margin:0 0 24px;
+    font-weight:700;
+    max-width:11ch;
+  }
+  .lede{
+    font-size:1.15rem;
+    color:var(--text-dim);
+    max-width:560px;
+    margin:0 0 40px;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.1fr 0.9fr;
+    gap:56px;
+    align-items:end;
+  }
+  @media (max-width:860px){ .hero-grid{grid-template-columns:1fr; gap:40px;} }
+
+  .cta-row{display:flex; gap:12px; flex-wrap:wrap;}
+  .btn{
+    font-family:var(--sans);
+    font-size:14px; font-weight:600;
+    padding:12px 20px;
+    border-radius:6px;
+    border:1px solid var(--line-strong);
+    background:transparent;
+    color:var(--text);
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-flex; align-items:center; gap:8px;
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--text-dim);}
+  .btn.primary{
+    background:var(--text);
+    color:var(--bg);
+    border-color:var(--text);
+  }
+  .btn.primary:hover{background:#d7dade;}
+
+  /* readout panel */
+  .readout{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:22px 24px;
+    min-height:150px;
+    display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .readout-label{
+    font-family:var(--mono); font-size:11.5px; color:var(--text-faint);
+    display:flex; justify-content:space-between;
+  }
+  .rec-dot{width:6px;height:6px;border-radius:50%;background:var(--high); display:inline-block; margin-right:6px; animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .readout-text{
+    font-family:var(--mono);
+    font-size:1.15rem;
+    line-height:1.5;
+    color:var(--text);
+    min-height:2.4em;
+    margin-top:16px;
+    opacity:0;
+    transition:opacity .5s ease;
+  }
+  .readout-text.show{opacity:1;}
+
+  /* ---------- section shell ---------- */
+  section{
+    padding:88px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .kicker{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-faint);
+    margin:0 0 10px;
+  }
+  h2{
+    font-size:clamp(1.7rem,3vw,2.3rem);
+    letter-spacing:-0.01em;
+    margin:0 0 18px;
+    font-weight:700;
+    max-width:14ch;
+  }
+  .section-lede{
+    color:var(--text-dim);
+    max-width:600px;
+    font-size:1.02rem;
+    margin:0 0 48px;
+  }
+
+  /* ---------- noise vs signal ---------- */
+  .compare{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  @media (max-width:700px){ .compare{grid-template-columns:1fr;} }
+  .compare > div{padding:28px 26px;}
+  .compare > div + div{border-left:1px solid var(--line);}
+  @media (max-width:700px){ .compare > div + div{border-left:none; border-top:1px solid var(--line);} }
+  .compare .label{font-family:var(--mono); font-size:12px; color:var(--text-faint); margin-bottom:14px;}
+  .compare .quote{font-size:1.15rem; line-height:1.55;}
+  .compare .noise .quote{color:var(--text-dim);}
+  .compare .signal .quote{color:var(--text);}
+  .compare .signal{background:rgba(61,138,120,0.06);}
+
+  /* ---------- impact ---------- */
+  .impact-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:700px){.impact-grid{grid-template-columns:1fr;}}
+  .impact-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .impact-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;filter:saturate(.82);}
+  .impact-card figcaption{padding:17px 19px 19px;}
+  .impact-label{font-family:var(--mono);font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;}
+  .impact-card blockquote{margin:10px 0 0;font-size:1.05rem;line-height:1.45;color:var(--text);}
+  .impact-note{margin:28px 0 0;padding:22px 24px;border-left:3px solid var(--low);background:rgba(61,138,120,.07);font-size:1.15rem;line-height:1.5;}
+  .impact-note cite{display:block;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--text-faint);font-style:normal;}
+
+  /* ---------- risk table ---------- */
+  .formula{
+    font-family:var(--mono);
+    font-size:0.95rem;
+    color:var(--text-dim);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px 22px;
+    margin-bottom:36px;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+  .formula b{color:var(--text); font-weight:600;}
+  table.risk{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.92rem;
+  }
+  table.risk th{
+    text-align:left;
+    font-family:var(--mono);
+    font-weight:500;
+    font-size:11.5px;
+    color:var(--text-faint);
+    padding:0 16px 12px 0;
+    border-bottom:1px solid var(--line-strong);
+  }
+  table.risk td{
+    padding:16px 16px 16px 0;
+    border-bottom:1px solid var(--line);
+    color:var(--text-dim);
+    vertical-align:middle;
+  }
+  table.risk td:first-child{color:var(--text); font-weight:600;}
+  .pri{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12.5px; font-weight:500;
+  }
+  .pri .sw{width:8px;height:8px;border-radius:2px;}
+  .pri.high{color:var(--high);} .pri.high .sw{background:var(--high);}
+  .pri.med{color:var(--med);} .pri.med .sw{background:var(--med);}
+  .pri.low{color:var(--low);} .pri.low .sw{background:var(--low);}
+
+  /* ---------- architecture ---------- */
+  .pipeline{max-width:640px; margin:0 auto;}
+  .stage{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px 22px;
+    background:var(--panel);
+    position:relative;
+  }
+  .stage + .stage{margin-top:0;}
+  .connector{
+    width:1px; height:28px; background:var(--line-strong);
+    margin:0 auto;
+  }
+  .stage-name{font-weight:600; font-size:15px; margin-bottom:4px;}
+  .stage-detail{font-family:var(--mono); font-size:12.5px; color:var(--text-dim);}
+
+  /* ---------- modes ---------- */
+  .modes{
+    display:flex;
+    gap:8px;
+    padding:8px;
+    overflow-x:auto;
+    border:1px solid var(--line);
+    border-radius:8px;
+    scrollbar-width:thin;
+  }
+  .mode{
+    flex:1 0 176px;
+    background:var(--panel);
+    padding:16px 14px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    transition:border-color .15s, background .15s;
+  }
+  .mode.active{
+    border-color:var(--high);
+    background:rgba(226,84,61,.10);
+  }
+  .mode .n{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-bottom:7px;}
+  .mode h3{font-size:.95rem; margin:0 0 6px; font-weight:600; white-space:nowrap;}
+  .mode p{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    margin:0;
+    line-height:1.4;
+    white-space:nowrap;
+  }
+
+  /* ---------- run locally ---------- */
+  .callout{
+    display:flex; gap:16px;
+    background:rgba(224,166,61,0.08);
+    border:1px solid rgba(224,166,61,0.28);
+    border-radius:8px;
+    padding:18px 20px;
+    margin-bottom:40px;
+    font-size:0.94rem;
+    color:#EFE0C4;
+  }
+  .callout .mark{
+    font-family:var(--mono); color:var(--med); font-weight:600; flex-shrink:0;
+  }
+  .callout p{margin:0; color:#DCCBA6; line-height:1.6;}
+  .callout strong{color:#F2E4C6;}
+
+  .steps{display:flex; flex-direction:column; gap:28px;}
+  .step{display:grid; grid-template-columns:120px 1fr; gap:20px;}
+  @media (max-width:640px){ .step{grid-template-columns:1fr; gap:10px;} }
+  .step-label{font-family:var(--mono); font-size:12.5px; color:var(--text-faint); padding-top:14px;}
+  .code-block{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px 16px;
+    position:relative;
+  }
+  .code-block pre{
+    margin:0;
+    font-family:var(--mono);
+    font-size:13px;
+    color:#C9E8DD;
+    white-space:pre-wrap;
+    word-break:break-word;
+    line-height:1.7;
+  }
+  .code-block .comment{color:var(--text-faint);}
+  .copy-btn{
+    position:absolute; top:10px; right:10px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:5px;
+    padding:5px 9px;
+    cursor:pointer;
+  }
+  .copy-btn:hover{color:var(--text);}
+
+  .hotkeys{
+    display:flex; gap:10px; flex-wrap:wrap; margin-top:20px;
+  }
+  .key{
+    font-family:var(--mono); font-size:12.5px;
+    border:1px solid var(--line-strong);
+    border-radius:5px;
+    padding:6px 10px;
+    color:var(--text-dim);
+    background:var(--panel);
+  }
+  .key b{color:var(--text);}
+
+  /* ---------- team ---------- */
+  .team{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  @media (max-width:700px){ .team{grid-template-columns:1fr;} }
+  .member{background:var(--panel); padding:26px 24px;}
+  .member.is-you{background:rgba(226,84,61,0.07);}
+  .member .role{font-family:var(--mono); font-size:11.5px; color:var(--text-faint); margin-bottom:10px;}
+  .member h3{margin:0 0 8px; font-size:1.02rem;}
+  .member ul{margin:0; padding-left:16px; color:var(--text-dim); font-size:12.5px; line-height:1.8;}
+  .you-tag{
+    font-family:var(--mono); font-size:10.5px; color:var(--high);
+    border:1px solid rgba(226,84,61,0.4);
+    border-radius:4px; padding:2px 6px; margin-left:8px;
+  }
+
+  footer{padding:52px 0 64px;}
+  .foot-row{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px;
+  }
+  .foot-note{color:var(--text-faint); font-size:12.5px; font-family:var(--mono);}
+  .live-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:start;}
+  @media (max-width:760px){.live-grid{grid-template-columns:1fr;}}
+  .camera-panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;}
+  .video-stage{position:relative;overflow:hidden;background:#080a0c;border-radius:4px;}
+  .camera-panel video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#080a0c;}
+  .camera-panel canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .live-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;}
+  .live-status{font-family:var(--mono);font-size:12px;color:var(--text-dim);}
+  .live-status strong{color:var(--low);}
+  .detections{min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px 22px;}
+  .detection-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;}
+  .detection-row:last-child{border-bottom:0;}
+  .detection-name{color:var(--text);font-weight:600;}
+  .detection-meta{color:var(--text-dim);text-align:right;}
+  .model-warning{color:var(--med);font-family:var(--mono);font-size:12px;margin-top:12px;}
+  .tts-heading{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;}
+  .tts-log{max-height:260px;overflow:auto;margin-top:10px;}
+  .tts-empty{color:var(--text-dim);font-family:var(--mono);font-size:12px;padding:10px 0;}
+  .tts-message{border-left:3px solid;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,.025);border-radius:0 4px 4px 0;}
+  .tts-message.high{border-color:var(--high);}.tts-message.medium{border-color:var(--med);}.tts-message.low{border-color:var(--low);}
+  .tts-meta{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:10px;margin-bottom:5px;color:var(--text-faint);}
+  .tts-message.high .tts-severity{color:var(--high);}.tts-message.medium .tts-severity{color:var(--med);}.tts-message.low .tts-severity{color:var(--low);}
+  .tts-text{font-size:13px;line-height:1.45;color:var(--text);}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark"></span>VisionAssist</div>
+    <div class="navlinks">
+      <a href="#innovation">Approach</a>
+      <a href="#impact">Impact</a>
+      <a href="#live">Live test</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#modes">Modes</a>
+      <a href="#run">Run it</a>
+      <a href="#team">Team</a>
+    </div>
+    <a class="btn" href="https://github.com/abhinavv27/VisonAssist" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Context-aware wearable vision assistance</p>
+        <h1 class="title">See the world through sound.</h1>
+        <p class="lede">VisionAssist watches a scene the way a camera can — hundreds of objects at once — then decides what a visually impaired user actually needs to hear right now, and says only that.</p>
+        <div class="cta-row">
+          <a class="btn primary" href="#run">Run it on your machine</a>
+          <a class="btn" href="#innovation">See how it decides</a>
+        </div>
+      </div>
+      <div class="readout">
+        <div class="readout-label"><span><span class="rec-dot"></span>spoken output</span><span>offline TTS</span></div>
+        <div class="readout-text" id="readout">Stairs ahead, approximately 2 metres away.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="live">
+  <div class="wrap">
+    <p class="kicker">Pattern A · local Python inference</p>
+    <h2>Try the model through this page</h2>
+    <p class="section-lede">The browser supplies camera frames; the local Python server keeps YOLOv8, OpenCV decoding, thresholds, and model preprocessing in one place.</p>
+    <div class="live-grid">
+      <div class="camera-panel">
+        <div class="video-stage">
+          <video id="camera" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <canvas id="capture" hidden></canvas>
+        <div class="live-controls">
+          <button class="btn primary" id="start-camera" type="button">Start camera</button>
+          <button class="btn" id="stop-camera" type="button" disabled>Stop</button>
+          <span class="live-status" id="live-status">Checking local Python server...</span>
+        </div>
+      </div>
+      <div class="detections">
+        <div class="readout-label"><span>latest inference</span><span id="latency">--</span></div>
+        <div id="detections-list" class="live-status" style="margin-top:18px;">No frame sent yet.</div>
+        <div id="model-warning" class="model-warning"></div>
+        <div class="tts-heading"><span>spoken alerts</span><span id="tts-count">0 messages</span></div>
+        <div id="tts-log" class="tts-log"><div class="tts-empty">No TTS messages yet.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="innovation">
+  <div class="wrap">
+    <p class="kicker">The core problem</p>
+    <h2>Detection isn't the hard part. Restraint is.</h2>
+    <p class="section-lede">A model can label everything in a frame in real time. Announcing all of it back to someone who can't see the frame isn't assistance — it's noise they have to filter themselves, which is the exact job the system was supposed to do for them.</p>
+    <div class="compare">
+      <div class="noise">
+        <div class="label">Every model output, spoken aloud</div>
+        <div class="quote">"Person. Bottle. Chair. Door. Stairs."</div>
+      </div>
+      <div class="signal">
+        <div class="label">Passed through the risk &amp; priority engine</div>
+        <div class="quote">"Stairs ahead, approximately 2 metres away."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="impact">
+  <div class="wrap">
+    <p class="kicker">Why it matters</p>
+    <h2>Less noise. More independence.</h2>
+    <p class="section-lede">For a blind or low-vision user, the useful output is not a catalogue of labels. It is a timely, understandable cue that supports the next decision without taking control away.</p>
+    <div class="impact-grid">
+      <figure class="impact-card">
+        <img src="/media/corridor_stairs.png" alt="VisionAssist corridor scene used to test stair detection">
+        <figcaption>
+          <div class="impact-label">Before · visual clutter</div>
+          <blockquote>“What is around me?”</blockquote>
+        </figcaption>
+      </figure>
+      <figure class="impact-card">
+        <img src="/media/critical_obstacle.png" alt="VisionAssist close-obstacle scene used to test safety alerts">
+        <figcaption>
+          <div class="impact-label">After · one useful cue</div>
+          <blockquote>“Warning. Obstacle ahead.”</blockquote>
+        </figcaption>
+      </figure>
+    </div>
+    <div class="impact-note">
+      “Alone we can do so little; together we can do so much.”
+      <cite>Helen Keller · a reminder that access and independence are shared work</cite>
+    </div>
+  </div>
+</section>
+
+<section id="risk">
+  <div class="wrap">
+    <p class="kicker">How it decides</p>
+    <h2>One risk score, four inputs</h2>
+    <p class="section-lede">Every detected object is scored on how much it actually matters right now — not just what it is. Only the highest-risk item in frame gets spoken, and low-risk clutter is suppressed entirely.</p>
+    <div class="formula">risk score&nbsp; = &nbsp;<b>proximity</b>&nbsp; + &nbsp;<b>centrality</b>&nbsp; + &nbsp;<b>base danger</b>&nbsp; + &nbsp;<b>movement factor</b></div>
+    <table class="risk">
+      <thead>
+        <tr><th>Object</th><th>Base danger</th><th>Distance</th><th>Position</th><th>Result</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stairs</td><td>85</td><td>2.0 m</td><td>Centre</td>
+          <td><span class="pri high"><span class="sw"></span>Spoken immediately</span></td>
+        </tr>
+        <tr>
+          <td>Vehicle</td><td>90</td><td>4.0 m</td><td>Centre</td>
+          <td><span class="pri high"><span class="sw"></span>Spoken immediately</span></td>
+        </tr>
+        <tr>
+          <td>Chair</td><td>40</td><td>1.5 m</td><td>Left</td>
+          <td><span class="pri med"><span class="sw"></span>Spoken if path is clear</span></td>
+        </tr>
+        <tr>
+          <td>Bottle</td><td>10</td><td>1.0 m</td><td>Right</td>
+          <td><span class="pri low"><span class="sw"></span>Suppressed</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <p class="kicker">System design</p>
+    <h2>Hardware-agnostic by construction</h2>
+    <p class="section-lede">The reasoning layers never import from a specific camera or sensor. Today the input is a laptop webcam; the same perception, risk, and speech code moves onto a phone stream or custom smart glasses without a rewrite.</p>
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-name">Input layer</div>
+        <div class="stage-detail">Laptop webcam · smartphone stream · hardware camera</div>
+      </div>
+      <div class="connector"></div>
+      <div class="stage">
+        <div class="stage-name">Perception layer</div>
+        <div class="stage-detail">YOLOv8 detection · EasyOCR · depth &amp; proximity · left/centre/right position</div>
+      </div>
+      <div class="connector"></div>
+      <div class="stage">
+        <div class="stage-name">Context &amp; risk engine</div>
+        <div class="stage-detail">What is nearby, where, and how urgent</div>
+      </div>
+      <div class="connector"></div>
+      <div class="stage">
+        <div class="stage-name">Priority engine</div>
+        <div class="stage-detail">Selects one top item · debounces repeat alerts · filters noise</div>
+      </div>
+      <div class="connector"></div>
+      <div class="stage">
+        <div class="stage-name">Response generator</div>
+        <div class="stage-detail">Concise template sentence, e.g. "Stairs ahead, approximately 2 m"</div>
+      </div>
+      <div class="connector"></div>
+      <div class="stage">
+        <div class="stage-name">Offline text-to-speech</div>
+        <div class="stage-detail">pyttsx3 / native SAPI · non-blocking queue · earphones or speakers</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="modes">
+  <div class="wrap">
+    <p class="kicker">Five ways to use it</p>
+    <h2>Product modes</h2>
+    <p class="section-lede">Five quick ways to see less and hear what matters.</p>
+    <div class="modes">
+      <div class="mode" data-mode="quick_look" data-key="1" tabindex="0">
+        <div class="n">01</div>
+        <h3>👀 Quick Look</h3>
+        <p>Scan the scene</p>
+      </div>
+      <div class="mode" data-mode="obstacle" data-key="2" tabindex="0">
+        <div class="n">02</div>
+        <h3>🧭 Obstacle</h3>
+        <p>Stay on course</p>
+      </div>
+      <div class="mode" data-mode="read" data-key="3" tabindex="0">
+        <div class="n">03</div>
+        <h3>🔤 Read</h3>
+        <p>Read signs aloud</p>
+      </div>
+      <div class="mode" data-mode="ask" data-key="4" tabindex="0">
+        <div class="n">04</div>
+        <h3>💬 Ask</h3>
+        <p>Ask about the view</p>
+      </div>
+      <div class="mode" data-mode="safety_alert" data-key="5" tabindex="0">
+        <div class="n">05</div>
+        <h3>🚨 Safety</h3>
+        <p>Warn before impact</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="run">
+  <div class="wrap">
+    <p class="kicker">Try it yourself</p>
+    <h2>This runs on your machine, not this page</h2>
+    <p class="section-lede">VisionAssist is a local Python application built on OpenCV, YOLOv8, and an offline speech engine. It needs direct access to a camera and to your system's audio output, which a browser tab can't grant. There's nothing to click "run" on here — you clone the repo and launch it locally instead.</p>
+
+    <div class="callout">
+      <span class="mark">Note</span>
+      <p>Launching the app opens <strong>its own window on your desktop</strong> — either a native OpenCV window, or a Streamlit dashboard served at <code>localhost</code> and opened in your browser. Either way, the model and camera feed run locally. This page can only show you how to start it, not run it for you.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-label">01 — Clone &amp; install</div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="git clone git@github.com:abhinavv27/VisonAssist.git
+cd VisonAssist
+pip install -r requirements.txt">Copy</button>
+<pre>git clone git@github.com:abhinavv27/VisonAssist.git
+cd VisonAssist
+pip install -r requirements.txt</pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">02 — Verify the build</div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="py -m pytest tests/">Copy</button>
+<pre>py -m pytest tests/</pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">03 — Desktop window</div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="py app.py
+py app.py --mock">Copy</button>
+<pre>py app.py               <span class="comment"># opens an OpenCV window using your webcam</span>
+py app.py --mock        <span class="comment"># no webcam? runs on a simulated feed</span></pre>
+        </div>
+        <div class="hotkeys">
+          <div class="key"><b>1</b> Quick Look</div>
+          <div class="key"><b>2</b> Obstacle Awareness</div>
+          <div class="key"><b>3</b> Read (OCR)</div>
+          <div class="key"><b>r</b> Reset cooldown</div>
+          <div class="key"><b>q</b> Quit</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">04 — Local dashboard</div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="py app.py --streamlit">Copy</button>
+<pre>py app.py --streamlit   <span class="comment"># opens the accessible dashboard at localhost</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="team">
+  <div class="wrap">
+    <p class="kicker">Built in 24 hours</p>
+    <h2>Team</h2>
+    <p class="section-lede">Built by a focused two-person team.</p>
+    <div class="team">
+      <div class="member">
+        <div class="role">Core systems + integration</div>
+        <h3>Abhinav Chauhan</h3>
+        <ul>
+          <li>Architecture</li>
+          <li>Camera pipeline</li>
+          <li>Context &amp; risk engine</li>
+          <li>System integration</li>
+        </ul>
+      </div>
+      <div class="member is-you">
+        <div class="role">Vision · OCR · audio <span class="you-tag">Adrit Das</span></div>
+        <h3>Adrit Das</h3>
+        <ul>
+          <li>YOLOv8 detection</li>
+          <li>EasyOCR reader</li>
+          <li>Spatial math &amp; depth estimator</li>
+          <li>TTS integration</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <span class="foot-note">VisionAssist · MVP v0 · runs locally, offline-first</span>
+      <a class="btn" href="https://github.com/abhinavv27/VisonAssist" target="_blank" rel="noopener">View source on GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // hero readout ticker — single orchestrated hero moment
+  const lines = [
+    "Stairs ahead, approximately 2 metres away.",
+    "Chair ahead, approximately 1.5 metres, on your left.",
+    "Computer Science Lab, Room 204.",
+    "Warning. Obstacle ahead.",
+    "There is a doorway ahead and a person on your left."
+  ];
+  const el = document.getElementById('readout');
+  let i = 0;
+  function cycle(){
+    el.classList.remove('show');
+    setTimeout(() => {
+      i = (i + 1) % lines.length;
+      el.textContent = lines[i];
+      el.classList.add('show');
+    }, 400);
+  }
+  requestAnimationFrame(() => el.classList.add('show'));
+  setInterval(cycle, 3200);
+
+  // copy-to-clipboard
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.getAttribute('data-copy');
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => { btn.textContent = original; }, 1400);
+      });
+    });
+  });
+
+  // Pattern A bridge: keep camera access in the browser and inference in Python.
+  const camera = document.getElementById('camera');
+  const capture = document.getElementById('capture');
+  const overlay = document.getElementById('overlay');
+  const overlayContext = overlay.getContext('2d');
+  const startCamera = document.getElementById('start-camera');
+  const stopCamera = document.getElementById('stop-camera');
+  const liveStatus = document.getElementById('live-status');
+  const detectionsList = document.getElementById('detections-list');
+  const modelWarning = document.getElementById('model-warning');
+  const latency = document.getElementById('latency');
+  const ttsLog = document.getElementById('tts-log');
+  const ttsCount = document.getElementById('tts-count');
+  const modeCards = [...document.querySelectorAll('.mode[data-mode]')];
+  let cameraStream = null;
+  let inferenceTimer = null;
+  let inferenceBusy = false;
+  let lastSpokenText = '';
+  let ttsMessages = 0;
+  let selectedMode = 'obstacle';
+
+  function selectMode(mode) {
+    const card = modeCards.find(item => item.dataset.mode === mode);
+    if (!card) return;
+    selectedMode = mode;
+    modeCards.forEach(item => item.classList.toggle('active', item === card));
+    liveStatus.textContent = `Mode ${card.dataset.key} active · ${card.querySelector('h3').textContent.replace(/^\S+\s/, '')}`;
+  }
+
+  modeCards.forEach(card => {
+    card.addEventListener('click', () => selectMode(card.dataset.mode));
+  });
+  window.addEventListener('keydown', event => {
+    if (event.target.matches('input, textarea, select')) return;
+    const card = modeCards.find(item => item.dataset.key === event.key);
+    if (card) {
+      event.preventDefault();
+      selectMode(card.dataset.mode);
+    }
+  });
+  selectMode(selectedMode);
+
+  function addTtsMessage(text, severity, objectName) {
+    if (!text) return;
+    ttsMessages += 1;
+    const level = ['HIGH', 'MEDIUM', 'LOW'].includes(severity) ? severity.toLowerCase() : 'low';
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+    if (ttsMessages === 1) ttsLog.innerHTML = '';
+    const entry = document.createElement('div');
+    entry.className = `tts-message ${level}`;
+    entry.innerHTML = `<div class="tts-meta"><span class="tts-severity">${severity || 'LOW'} · ${objectName || 'alert'}</span><span>${time}</span></div><div class="tts-text">${text}</div>`;
+    ttsLog.prepend(entry);
+    ttsCount.textContent = `${ttsMessages} message${ttsMessages === 1 ? '' : 's'}`;
+  }
+
+  function drawHazardBoxes(items, width, height) {
+    overlay.width = width;
+    overlay.height = height;
+    overlayContext.clearRect(0, 0, width, height);
+    items
+      .filter(item => item.priority === 'HIGH' || item.distance <= 1.2)
+      .forEach(item => {
+        const [x1, y1, x2, y2] = item.bbox;
+        const isHighRisk = item.priority === 'HIGH' || item.risk_score >= 65;
+        const color = isHighRisk ? '#E2543D' : '#E0A63D';
+        const label = `${item.object} · ${item.distance.toFixed(1)}m · risk ${Math.round(item.risk_score)}`;
+        overlayContext.strokeStyle = color;
+        overlayContext.lineWidth = Math.max(3, width / 320);
+        overlayContext.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        overlayContext.font = `600 ${Math.max(13, width / 48)}px JetBrains Mono, monospace`;
+        const labelWidth = overlayContext.measureText(label).width + 14;
+        const labelHeight = Math.max(24, width / 24);
+        const labelY = Math.max(labelHeight, y1);
+        overlayContext.fillStyle = color;
+        overlayContext.fillRect(x1, labelY - labelHeight, labelWidth, labelHeight);
+        overlayContext.fillStyle = '#0C0F12';
+        overlayContext.fillText(label, x1 + 7, labelY - labelHeight / 3);
+      });
+  }
+
+  function speakHazard(text) {
+    if (!text || text === lastSpokenText || !('speechSynthesis' in window)) return;
+    lastSpokenText = text;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function showDetections(items) {
+    if (!items.length) {
+      detectionsList.textContent = 'No objects detected in the latest frame.';
+      return;
+    }
+    detectionsList.innerHTML = items.map(item => `
+      <div class="detection-row">
+        <span class="detection-name">${item.object}</span>
+        <span class="detection-meta">${Math.round(item.confidence * 100)}% · [${item.bbox.join(', ')}]</span>
+      </div>`).join('');
+  }
+
+  async function checkServer() {
+    try {
+      const response = await fetch('/api/health');
+      const health = await response.json();
+      liveStatus.innerHTML = health.model_live
+        ? '<strong>Python server connected · YOLO live</strong>'
+        : '<strong style="color:var(--med)">Python server connected · fallback detector</strong>';
+      modelWarning.textContent = health.model_live ? '' : 'The model did not load; results are heuristic test detections.';
+    } catch (error) {
+      liveStatus.textContent = 'Start with: py app.py --web';
+      modelWarning.textContent = 'This page must be opened from the local Python server, not as a file.';
+    }
+  }
+
+  async function sendFrame() {
+    if (!cameraStream || inferenceBusy || !camera.videoWidth) return;
+    inferenceBusy = true;
+    const started = performance.now();
+    capture.width = camera.videoWidth;
+    capture.height = camera.videoHeight;
+    capture.getContext('2d').drawImage(camera, 0, 0);
+    try {
+      const response = await fetch('/api/detect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          image: capture.toDataURL('image/jpeg', 0.88),
+          mode: selectedMode
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'inference failed');
+      latency.textContent = `${Math.round(performance.now() - started)} ms`;
+      drawHazardBoxes(result.context_items || [], result.width, result.height);
+      showDetections(result.context_items || []);
+      addTtsMessage(result.speech_text, result.speech_severity, result.speech_object);
+      speakHazard(result.speech_text);
+    } catch (error) {
+      liveStatus.textContent = `Inference error: ${error.message}`;
+    } finally {
+      inferenceBusy = false;
+    }
+  }
+
+  startCamera.addEventListener('click', async () => {
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {width: {ideal: 640}, height: {ideal: 480}, facingMode: 'user'},
+        audio: false
+      });
+      camera.srcObject = cameraStream;
+      startCamera.disabled = true;
+      stopCamera.disabled = false;
+      liveStatus.textContent = 'Camera active · sending one frame at a time';
+      inferenceTimer = setInterval(sendFrame, 250);
+    } catch (error) {
+      liveStatus.textContent = `Camera unavailable: ${error.message}`;
+    }
+  });
+
+  stopCamera.addEventListener('click', () => {
+    clearInterval(inferenceTimer);
+    inferenceTimer = null;
+    cameraStream?.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+    camera.srcObject = null;
+    startCamera.disabled = false;
+    stopCamera.disabled = true;
+    liveStatus.textContent = 'Camera stopped';
+  });
+
+  checkServer();
+</script>
+
+</body>
+</html>

@@ -26,7 +26,7 @@ from intelligence.response_generator import ResponseGenerator
 
 logger = logging.getLogger("VisionAssist.WebServer")
 PROJECT_ROOT = Path(__file__).resolve().parent
-WEB_PAGE = PROJECT_ROOT.parent / "visionassist.html"
+WEB_PAGE = PROJECT_ROOT / "visionassist.html"
 MEDIA_DIR = PROJECT_ROOT / "tests" / "test_scenes"
 MEDIA_FILES = {
     "corridor_stairs.png",
