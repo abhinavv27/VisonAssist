@@ -12,7 +12,13 @@ import time
 from typing import Any, Dict, List, Optional
 import numpy as np
 
-from config import YOLO_MODEL_NAME, YOLO_CONFIDENCE_THRESHOLD, MODELS_DIR
+from config import (
+    YOLO_IMAGE_SIZE,
+    YOLO_INFERENCE_CONFIDENCE,
+    YOLO_MODEL_NAME,
+    YOLO_CONFIDENCE_THRESHOLD,
+    MODELS_DIR,
+)
 
 logger = logging.getLogger("VisionAssist.Perception.ObjectDetection")
 
@@ -27,10 +33,12 @@ class ObjectDetector:
         model_name: str = YOLO_MODEL_NAME,
         conf_thresh: float = YOLO_CONFIDENCE_THRESHOLD,
         device: Optional[str] = None,
+        enable_stair_heuristic: bool = False,
     ):
         self.model_name = model_name
         self.conf_thresh = conf_thresh
         self.device = device
+        self.enable_stair_heuristic = enable_stair_heuristic
         self.model: Any = None
         self._is_mock = False
         self._initialize_model()
@@ -120,7 +128,11 @@ class ObjectDetector:
             h, w = frame.shape[:2]
             if not self._is_mock and self.model is not None:
                 try:
-                    kwargs = {"verbose": False, "conf": self.conf_thresh}
+                    kwargs = {
+                        "verbose": False,
+                        "conf": YOLO_INFERENCE_CONFIDENCE,
+                        "imgsz": YOLO_IMAGE_SIZE,
+                    }
                     if self.device:
                         kwargs["device"] = self.device
                     results = self.model(frame, **kwargs)
@@ -152,8 +164,9 @@ class ObjectDetector:
                                 "y_center": round(y_center, 1),
                                 "bbox": [x1, y1, x2, y2],
                             })
-                    # Check for stairs hazard (steps/stairways have distinctive periodic horizontal edges)
-                    if not any(d["object"] == "stairs" for d in detections):
+                    # Hough-line stairs detection is opt-in because floors, desks,
+                    # and shelves can produce the same horizontal edge pattern.
+                    if self.enable_stair_heuristic and not any(d["object"] == "stairs" for d in detections):
                         stair_det = self._detect_stairs(frame)
                         if stair_det:
                             detections.append(stair_det)

@@ -1,0 +1,14 @@
+# Copy to a real dataset directory as dataset.yaml after collecting labels.
+# Paths are relative to this file's directory.
+path: .
+train: images/train
+val: images/val
+
+# Keep classes grounded in objects visible to the camera.
+names:
+  0: stairs
+  1: chair
+  2: door
+  3: person
+  4: car
+  5: obstacle
